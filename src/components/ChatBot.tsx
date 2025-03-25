@@ -5,7 +5,7 @@ import { Send, Bot, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { generateAIResponse, getApiKey } from "@/utils/openaiService";
+import { generateAIResponse, getApiKey, ChatMessage } from "@/utils/openaiService";
 import ApiKeyInput from "./ApiKeyInput";
 import { toast } from "@/hooks/use-toast";
 
@@ -68,11 +68,11 @@ const ChatBot = () => {
     setIsTyping(true);
 
     try {
-      // Prepare conversation history for OpenAI
-      const conversationHistory = [
+      // Prepare conversation history for OpenAI with proper typing
+      const conversationHistory: ChatMessage[] = [
         { role: 'system', content: SYSTEM_PROMPT },
         ...messages.map(msg => ({
-          role: msg.isUser ? 'user' : 'assistant',
+          role: msg.isUser ? 'user' : 'assistant' as const,
           content: msg.text
         })),
         { role: 'user', content: input }

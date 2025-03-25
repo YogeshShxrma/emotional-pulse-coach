@@ -1,4 +1,3 @@
-
 // OpenAI GPT-4 API integration
 import { toast } from "@/hooks/use-toast";
 
@@ -15,7 +14,7 @@ export const getApiKey = () => {
   return apiKey;
 };
 
-interface ChatMessage {
+export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
 }
