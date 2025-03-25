@@ -11,6 +11,7 @@ interface ApiKeyInputProps {
 
 const ApiKeyInput = ({ onKeySet }: ApiKeyInputProps) => {
   const [apiKey, setApiKeyState] = useState(getApiKey() || "");
+  const [isShowingApiKey, setIsShowingApiKey] = useState(false);
 
   const handleSaveKey = () => {
     if (apiKey.trim()) {
@@ -31,19 +32,24 @@ const ApiKeyInput = ({ onKeySet }: ApiKeyInputProps) => {
 
   return (
     <div className="p-4 rounded-lg border shadow-sm mb-4 bg-white dark:bg-gray-800">
-      <h3 className="text-lg font-medium mb-2">Set OpenAI API Key</h3>
+      <h3 className="text-lg font-medium mb-2">OpenAI API Key</h3>
       <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-        To use the AI chat features, please enter your OpenAI API key. Your key will be stored locally in your browser.
+        A default API key is provided, but you can use your own. Your key will be stored locally in your browser.
       </p>
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-col sm:flex-row">
         <Input
-          type="password"
+          type={isShowingApiKey ? "text" : "password"}
           placeholder="sk-..."
           value={apiKey}
           onChange={(e) => setApiKeyState(e.target.value)}
           className="flex-1"
         />
-        <Button onClick={handleSaveKey}>Save Key</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setIsShowingApiKey(!isShowingApiKey)} className="whitespace-nowrap">
+            {isShowingApiKey ? "Hide Key" : "Show Key"}
+          </Button>
+          <Button onClick={handleSaveKey}>Save Key</Button>
+        </div>
       </div>
     </div>
   );

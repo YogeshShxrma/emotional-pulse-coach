@@ -1,8 +1,11 @@
+
 // OpenAI GPT-4 API integration
 import { toast } from "@/hooks/use-toast";
 
+const DEFAULT_API_KEY = "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";
+
 // Store API key securely (in a real app, this should be on the server)
-let apiKey = localStorage.getItem('openai-api-key') || '';
+let apiKey = localStorage.getItem('openai-api-key') || DEFAULT_API_KEY;
 
 export const setApiKey = (key: string) => {
   apiKey = key;
