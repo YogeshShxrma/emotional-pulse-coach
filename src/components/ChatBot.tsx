@@ -5,6 +5,9 @@ import { Send, Bot, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { generateAIResponse, getApiKey } from "@/utils/openaiService";
+import ApiKeyInput from "./ApiKeyInput";
+import { toast } from "@/hooks/use-toast";
 
 interface Message {
   id: string;
@@ -22,10 +25,23 @@ const INITIAL_MESSAGES: Message[] = [
   },
 ];
 
+const SYSTEM_PROMPT = `You are a compassionate mental health coach. Your role is to provide supportive, empathetic responses that help the user explore their emotions and develop coping strategies. 
+
+You should:
+- Respond with empathy and validation
+- Ask thoughtful follow-up questions
+- Suggest evidence-based coping strategies when appropriate
+- Never give medical advice or attempt to diagnose
+- Keep responses concise (2-4 sentences max)
+- Focus on emotional support and gentle guidance
+
+If the user expresses severe distress or suicidal thoughts, encourage them to contact a mental health professional or a crisis helpline immediately.`;
+
 const ChatBot = () => {
   const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [hasApiKey, setHasApiKey] = useState(!!getApiKey());
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -36,7 +52,7 @@ const ChatBot = () => {
     scrollToBottom();
   }, [messages]);
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!input.trim()) return;
 
     // Add user message
@@ -51,13 +67,37 @@ const ChatBot = () => {
     setInput("");
     setIsTyping(true);
 
-    // Simulate AI response
-    simulateResponse(input);
-  };
+    try {
+      // Prepare conversation history for OpenAI
+      const conversationHistory = [
+        { role: 'system', content: SYSTEM_PROMPT },
+        ...messages.map(msg => ({
+          role: msg.isUser ? 'user' : 'assistant',
+          content: msg.text
+        })),
+        { role: 'user', content: input }
+      ];
 
-  const simulateResponse = (userMessage: string) => {
-    setTimeout(() => {
-      const lowerCaseMessage = userMessage.toLowerCase();
+      // Get response from OpenAI
+      const aiResponse = await generateAIResponse(conversationHistory);
+
+      const botMessage: Message = {
+        id: Date.now().toString(),
+        text: aiResponse,
+        isUser: false,
+        timestamp: new Date(),
+      };
+
+      setMessages((prevMessages) => [...prevMessages, botMessage]);
+    } catch (error) {
+      // Fallback to basic responses if API fails
+      toast({
+        title: "AI Response Error",
+        description: "Falling back to basic responses",
+        variant: "destructive"
+      });
+      
+      const lowerCaseMessage = input.toLowerCase();
       let response = "";
 
       if (lowerCaseMessage.includes("sad") || lowerCaseMessage.includes("depress")) {
@@ -88,16 +128,23 @@ const ChatBot = () => {
       };
 
       setMessages((prevMessages) => [...prevMessages, botMessage]);
+    } finally {
       setIsTyping(false);
-    }, 1500);
+    }
   };
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  const handleApiKeySet = () => {
+    setHasApiKey(true);
+  };
+
   return (
     <div className="flex flex-col h-full w-full max-w-md mx-auto">
+      {!hasApiKey && <ApiKeyInput onKeySet={handleApiKeySet} />}
+      
       <motion.div 
         className="flex-1 overflow-hidden flex flex-col bg-white dark:bg-gray-800 rounded-3xl shadow-lg mb-4"
         initial={{ opacity: 0, y: 20 }}
@@ -111,7 +158,9 @@ const ChatBot = () => {
           </div>
           <div>
             <h3 className="font-semibold">AI Mental Health Coach</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Always here to listen and support</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {hasApiKey ? "Powered by GPT-4" : "Basic responses (add API key for GPT-4)"}
+            </p>
           </div>
         </div>
         
