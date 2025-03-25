@@ -70,12 +70,12 @@ const ChatBot = () => {
     try {
       // Prepare conversation history for OpenAI with proper typing
       const conversationHistory: ChatMessage[] = [
-        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system' as const, content: SYSTEM_PROMPT },
         ...messages.map(msg => ({
-          role: msg.isUser ? 'user' : 'assistant' as const,
+          role: (msg.isUser ? 'user' : 'assistant') as 'user' | 'assistant',
           content: msg.text
         })),
-        { role: 'user', content: input }
+        { role: 'user' as const, content: input }
       ];
 
       // Get response from OpenAI
