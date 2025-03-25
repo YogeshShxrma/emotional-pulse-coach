@@ -4,12 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { setApiKey, getApiKey } from "@/utils/openaiService";
 import { toast } from "@/hooks/use-toast";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 interface ApiKeyInputProps {
   onKeySet: () => void;
+  quotaExceeded?: boolean;
 }
 
-const ApiKeyInput = ({ onKeySet }: ApiKeyInputProps) => {
+const ApiKeyInput = ({ onKeySet, quotaExceeded = false }: ApiKeyInputProps) => {
   const [apiKey, setApiKeyState] = useState(getApiKey() || "");
   const [isShowingApiKey, setIsShowingApiKey] = useState(false);
 
@@ -33,8 +36,18 @@ const ApiKeyInput = ({ onKeySet }: ApiKeyInputProps) => {
   return (
     <div className="p-4 rounded-lg border shadow-sm mb-4 bg-white dark:bg-gray-800">
       <h3 className="text-lg font-medium mb-2">OpenAI API Key</h3>
+      
+      {quotaExceeded && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            The current API key has exceeded its quota. Please enter a different API key to continue using the chat.
+          </AlertDescription>
+        </Alert>
+      )}
+      
       <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-        A default API key is provided, but you can use your own. Your key will be stored locally in your browser.
+        A default API key is provided, but it may have limited quota. You can use your own key for uninterrupted service. Your key will be stored locally in your browser.
       </p>
       <div className="flex gap-2 flex-col sm:flex-row">
         <Input

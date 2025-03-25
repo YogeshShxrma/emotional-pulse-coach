@@ -44,6 +44,13 @@ export const generateAIResponse = async (messages: ChatMessage[]): Promise<strin
 
     if (!response.ok) {
       const error = await response.json();
+      console.error('OpenAI API error:', error);
+      
+      // Handle quota exceeded error specifically
+      if (error.error?.code === 'insufficient_quota') {
+        throw new Error('API quota exceeded. Please use a different API key with available quota.');
+      }
+      
       throw new Error(error.error?.message || 'Failed to get response from OpenAI');
     }
 
@@ -51,11 +58,24 @@ export const generateAIResponse = async (messages: ChatMessage[]): Promise<strin
     return data.choices[0].message.content;
   } catch (error) {
     console.error('Error generating AI response:', error);
+    
+    const errorMessage = error instanceof Error ? error.message : "Failed to get AI response";
+    
     toast({
       title: "AI Response Error",
-      description: error instanceof Error ? error.message : "Failed to get AI response",
+      description: errorMessage,
       variant: "destructive"
     });
+    
+    // Check if error is related to quota
+    if (errorMessage.includes('quota') || errorMessage.includes('exceeded')) {
+      toast({
+        title: "API Quota Exceeded",
+        description: "The API key has reached its quota limit. Please use a different API key.",
+        variant: "destructive"
+      });
+    }
+    
     throw error;
   }
 };

@@ -42,6 +42,7 @@ const ChatBot = () => {
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [hasApiKey, setHasApiKey] = useState(!!getApiKey());
+  const [quotaExceeded, setQuotaExceeded] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -70,12 +71,12 @@ const ChatBot = () => {
     try {
       // Prepare conversation history for OpenAI with proper typing
       const conversationHistory: ChatMessage[] = [
-        { role: 'system' as const, content: SYSTEM_PROMPT },
+        { role: 'system', content: SYSTEM_PROMPT },
         ...messages.map(msg => ({
-          role: (msg.isUser ? 'user' : 'assistant') as 'user' | 'assistant',
+          role: msg.isUser ? 'user' : 'assistant',
           content: msg.text
-        })),
-        { role: 'user' as const, content: input }
+        })) as ChatMessage[],
+        { role: 'user', content: input }
       ];
 
       // Get response from OpenAI
@@ -89,14 +90,15 @@ const ChatBot = () => {
       };
 
       setMessages((prevMessages) => [...prevMessages, botMessage]);
+      setQuotaExceeded(false);
     } catch (error) {
-      // Fallback to basic responses if API fails
-      toast({
-        title: "AI Response Error",
-        description: "Falling back to basic responses",
-        variant: "destructive"
-      });
+      // Check if error is related to quota
+      const errorMessage = error instanceof Error ? error.message : "";
+      if (errorMessage.includes('quota') || errorMessage.includes('exceeded')) {
+        setQuotaExceeded(true);
+      }
       
+      // Fallback to basic responses if API fails
       const lowerCaseMessage = input.toLowerCase();
       let response = "";
 
@@ -139,11 +141,12 @@ const ChatBot = () => {
 
   const handleApiKeySet = () => {
     setHasApiKey(true);
+    setQuotaExceeded(false);
   };
 
   return (
     <div className="flex flex-col h-full w-full max-w-md mx-auto">
-      {!hasApiKey && <ApiKeyInput onKeySet={handleApiKeySet} />}
+      {(!hasApiKey || quotaExceeded) && <ApiKeyInput onKeySet={handleApiKeySet} quotaExceeded={quotaExceeded} />}
       
       <motion.div 
         className="flex-1 overflow-hidden flex flex-col bg-white dark:bg-gray-800 rounded-3xl shadow-lg mb-4"
@@ -159,7 +162,7 @@ const ChatBot = () => {
           <div>
             <h3 className="font-semibold">AI Mental Health Coach</h3>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              {hasApiKey ? "Powered by GPT-4" : "Basic responses (add API key for GPT-4)"}
+              {hasApiKey && !quotaExceeded ? "Powered by GPT-4" : "Basic responses (add/update API key for GPT-4)"}
             </p>
           </div>
         </div>
