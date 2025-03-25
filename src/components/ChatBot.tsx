@@ -162,7 +162,7 @@ const ChatBot = () => {
           <div>
             <h3 className="font-semibold">AI Mental Health Coach</h3>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              {hasApiKey && !quotaExceeded ? "Powered by GPT-4" : "Basic responses (add/update API key for GPT-4)"}
+              {hasApiKey && !quotaExceeded ? "Ready to chat" : "Basic responses (add/update API key for full features)"}
             </p>
           </div>
         </div>
