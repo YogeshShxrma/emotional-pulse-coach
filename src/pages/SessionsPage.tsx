@@ -1,0 +1,279 @@
+
+import React, { useState } from "react";
+import { motion } from "framer-motion";
+import { Calendar } from "@/components/ui/calendar";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { useForm } from "react-hook-form";
+import { format, addDays } from "date-fns";
+import { Calendar as CalendarIcon, User, Video } from "lucide-react";
+import { toast } from "@/components/ui/use-toast";
+
+interface Doctor {
+  id: number;
+  name: string;
+  specialty: string;
+  location: string;
+  available: string[];
+  image: string;
+}
+
+const doctors: Doctor[] = [
+  {
+    id: 1,
+    name: "Dr. Sarah Johnson",
+    specialty: "Clinical Psychology",
+    location: "New York, USA",
+    available: ["9:00 AM", "11:00 AM", "2:00 PM"],
+    image: "https://randomuser.me/api/portraits/women/44.jpg"
+  },
+  {
+    id: 2,
+    name: "Dr. Michael Chen",
+    specialty: "Cognitive Behavioral Therapy",
+    location: "Toronto, Canada",
+    available: ["10:00 AM", "1:00 PM", "4:00 PM"],
+    image: "https://randomuser.me/api/portraits/men/32.jpg"
+  },
+  {
+    id: 3,
+    name: "Dr. Priya Sharma",
+    specialty: "Anxiety & Depression",
+    location: "London, UK",
+    available: ["8:00 AM", "12:00 PM", "3:00 PM"],
+    image: "https://randomuser.me/api/portraits/women/66.jpg"
+  },
+  {
+    id: 4,
+    name: "Dr. David Ngozi",
+    specialty: "Trauma Therapy",
+    location: "Sydney, Australia",
+    available: ["7:00 AM", "10:00 AM", "5:00 PM"],
+    image: "https://randomuser.me/api/portraits/men/22.jpg"
+  },
+];
+
+const SessionsPage = () => {
+  const [date, setDate] = useState<Date | undefined>(new Date());
+  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  
+  const form = useForm({
+    defaultValues: {
+      sessionType: "video",
+    },
+  });
+  
+  const handleBookSession = () => {
+    if (!date || !selectedDoctor || !selectedTime) {
+      toast({
+        title: "Incomplete booking",
+        description: "Please select a date, doctor, and time slot.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    toast({
+      title: "Session booked!",
+      description: `Your session with ${selectedDoctor.name} is scheduled for ${format(date, "MMMM d, yyyy")} at ${selectedTime}.`,
+    });
+    
+    setDialogOpen(false);
+    setSelectedTime(null);
+  };
+
+  return (
+    <div className="container mx-auto py-8 px-4">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <h1 className="text-3xl font-bold mb-2">Book a Therapy Session</h1>
+        <p className="text-gray-600 dark:text-gray-300 mb-8">
+          Connect with licensed professionals from around the world for personalized therapy sessions.
+        </p>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="md:col-span-1 bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
+            <h2 className="text-xl font-semibold mb-4">Select a Date</h2>
+            <Calendar
+              mode="single"
+              selected={date}
+              onSelect={setDate}
+              disabled={(date) => date < new Date() || date > addDays(new Date(), 30)}
+              className="rounded-md border"
+            />
+            
+            <div className="mt-6">
+              <h3 className="font-medium mb-2">Session Type</h3>
+              <Form {...form}>
+                <FormField
+                  control={form.control}
+                  name="sessionType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select session type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            <SelectLabel>Session Types</SelectLabel>
+                            <SelectItem value="video">
+                              <div className="flex items-center">
+                                <Video className="mr-2 h-4 w-4" />
+                                <span>Video Call</span>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="inperson">
+                              <div className="flex items-center">
+                                <User className="mr-2 h-4 w-4" />
+                                <span>In Person</span>
+                              </div>
+                            </SelectItem>
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )}
+                />
+              </Form>
+            </div>
+          </div>
+          
+          <div className="md:col-span-2">
+            <h2 className="text-xl font-semibold mb-4">Available Therapists</h2>
+            <div className="space-y-4">
+              {doctors.map((doctor) => (
+                <motion.div
+                  key={doctor.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.3 }}
+                  className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm flex items-center justify-between"
+                >
+                  <div className="flex items-center">
+                    <img 
+                      src={doctor.image} 
+                      alt={doctor.name} 
+                      className="w-12 h-12 rounded-full mr-4"
+                    />
+                    <div>
+                      <h3 className="font-medium">{doctor.name}</h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">{doctor.specialty}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-500">{doctor.location}</p>
+                    </div>
+                  </div>
+                  
+                  <Dialog open={dialogOpen && selectedDoctor?.id === doctor.id} onOpenChange={(open) => {
+                    setDialogOpen(open);
+                    if (open) setSelectedDoctor(doctor);
+                  }}>
+                    <DialogTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        className="bg-emotionPurple-light dark:bg-emotionPurple-dark/20 hover:bg-emotionPurple-light/80 text-emotionPurple border-emotionPurple/30"
+                        onClick={() => setSelectedDoctor(doctor)}
+                      >
+                        View Times
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Book a Session with {doctor.name}</DialogTitle>
+                        <DialogDescription>
+                          {format(date || new Date(), "MMMM d, yyyy")}
+                        </DialogDescription>
+                      </DialogHeader>
+                      
+                      <div className="grid grid-cols-3 gap-2 py-4">
+                        {doctor.available.map((time) => (
+                          <Button
+                            key={time}
+                            variant="outline"
+                            className={`${selectedTime === time ? "bg-emotionPurple text-white" : ""}`}
+                            onClick={() => setSelectedTime(time)}
+                          >
+                            {time}
+                          </Button>
+                        ))}
+                      </div>
+                      
+                      <DialogFooter>
+                        <Button 
+                          className="bg-emotionPurple hover:bg-emotionPurple/90"
+                          onClick={handleBookSession}
+                        >
+                          Book Session
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </div>
+        
+        <div className="mt-10">
+          <h2 className="text-xl font-semibold mb-4">Upcoming Sessions</h2>
+          <Table>
+            <TableCaption>You have no upcoming sessions</TableCaption>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Therapist</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Time</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {/* Sessions will appear here after booking */}
+            </TableBody>
+          </Table>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+export default SessionsPage;

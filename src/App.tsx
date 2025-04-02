@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import EmotionScanPage from "./pages/EmotionScanPage";
 import ChatBotPage from "./pages/ChatBotPage";
 import MoodTrackerPage from "./pages/MoodTrackerPage";
+import SessionsPage from "./pages/SessionsPage";
 import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
 
@@ -26,6 +27,7 @@ const App = () => (
             <Route path="/scan" element={<EmotionScanPage />} />
             <Route path="/chat" element={<ChatBotPage />} />
             <Route path="/mood" element={<MoodTrackerPage />} />
+            <Route path="/sessions" element={<SessionsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
           <Route path="*" element={<NotFound />} />
