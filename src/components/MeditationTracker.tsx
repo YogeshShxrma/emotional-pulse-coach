@@ -130,10 +130,10 @@ export const MeditationTracker = ({ date }: MeditationTrackerProps) => {
         {isSaved ? (
           <>
             <Check className="mr-2 h-4 w-4" />
-            Update Meditation Data
+            Update Meditation
           </>
         ) : (
-          "Save Meditation Data"
+          "Save Meditation"
         )}
       </Button>
     </div>

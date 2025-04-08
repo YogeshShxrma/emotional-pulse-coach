@@ -114,10 +114,10 @@ export const SleepTracker = ({ date }: SleepTrackerProps) => {
         {isSaved ? (
           <>
             <Check className="mr-2 h-4 w-4" />
-            Update Sleep Data
+            Update Sleep Hours
           </>
         ) : (
-          "Save Sleep Data"
+          "Save Sleep Hours"
         )}
       </Button>
     </div>
