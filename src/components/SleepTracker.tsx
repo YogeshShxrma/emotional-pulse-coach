@@ -110,6 +110,7 @@ export const SleepTracker = ({ date }: SleepTrackerProps) => {
       <Button 
         onClick={saveSleepData}
         className="w-full bg-emotionPurple hover:bg-emotionPurple/90"
+        type="button"
       >
         {isSaved ? (
           <>
