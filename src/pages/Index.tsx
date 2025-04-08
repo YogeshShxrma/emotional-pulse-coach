@@ -1,7 +1,7 @@
 
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { ArrowRight, Brain, Camera, MessageCircle, BarChart3, Calendar } from "lucide-react";
+import { ArrowRight, Brain, Camera, MessageCircle, BarChart3, Calendar, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -22,17 +22,24 @@ const Index = () => {
       link: "/chat"
     },
     {
+      icon: Clock,
+      title: "Daily Check-Ins",
+      description: "Track your sleep, water intake, and other daily routines to improve well-being.",
+      color: "emotionGreen",
+      link: "/daily-check-in"
+    },
+    {
       icon: BarChart3,
       title: "Mood Tracking",
       description: "Visualize your emotional patterns and receive tailored insights.",
-      color: "emotionGreen",
+      color: "emotionPurple",
       link: "/mood"
     },
     {
       icon: Calendar,
       title: "Online Therapy Sessions",
       description: "Book private sessions with licensed professionals from around the world.",
-      color: "emotionPurple",
+      color: "emotionTeal",
       link: "/sessions"
     },
   ];

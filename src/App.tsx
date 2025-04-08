@@ -12,6 +12,7 @@ import MoodTrackerPage from "./pages/MoodTrackerPage";
 import SessionsPage from "./pages/SessionsPage";
 import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
+import DailyCheckInPage from "./pages/DailyCheckInPage";
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/mood" element={<MoodTrackerPage />} />
             <Route path="/sessions" element={<SessionsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/daily-check-in" element={<DailyCheckInPage />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

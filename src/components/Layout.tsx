@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Camera, MessageCircle, BarChart3, Settings, AlertCircle } from "lucide-react";
+import { Calendar, Camera, MessageCircle, BarChart3, Settings, AlertCircle, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const Layout = () => {
@@ -37,6 +37,7 @@ const Layout = () => {
           <div className="flex justify-around items-center py-2">
             <NavItem to="/scan" label="Scan" icon={Camera} isActive={location.pathname === "/scan"} />
             <NavItem to="/chat" label="Chat" icon={MessageCircle} isActive={location.pathname === "/chat"} />
+            <NavItem to="/daily-check-in" label="Check-In" icon={Clock} isActive={location.pathname === "/daily-check-in"} />
             
             {/* Emergency Button */}
             {isEmerging && (
