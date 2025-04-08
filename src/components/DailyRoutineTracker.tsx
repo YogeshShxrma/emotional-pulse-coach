@@ -2,15 +2,13 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { format, subDays, addDays } from "date-fns";
-import { Calendar, ArrowLeft, ArrowRight, Droplet, Clock } from "lucide-react";
+import { Calendar, ArrowLeft, ArrowRight, Droplet, Clock, Meditation } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Slider } from "@/components/ui/slider";
-import { Label } from "@/components/ui/label";
 import { SleepTracker } from "./SleepTracker";
 import { WaterTracker } from "./WaterTracker";
+import { MeditationTracker } from "./MeditationTracker";
 import { toast } from "sonner";
 
 const DailyRoutineTracker = () => {
@@ -88,6 +86,19 @@ const DailyRoutineTracker = () => {
               <WaterTracker date={currentDate} />
             </CardContent>
           </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Meditation className="mr-2 h-5 w-5 text-amber-500" />
+                Meditation Tracker
+              </CardTitle>
+              <CardDescription>Track your meditation time and set reminders</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <MeditationTracker date={currentDate} />
+            </CardContent>
+          </Card>
         </TabsContent>
         
         <TabsContent value="history" className="space-y-4">
@@ -124,6 +135,13 @@ const DailyRoutineTracker = () => {
                 <h4 className="font-semibold mb-2">Hydration</h4>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   You're consistently reaching 80% of your daily water intake goal. Try to increase by one glass per day.
+                </p>
+              </div>
+              
+              <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-lg">
+                <h4 className="font-semibold mb-2">Meditation</h4>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Regular meditation practice can help reduce stress and improve focus. Try to maintain consistency in your practice.
                 </p>
               </div>
               

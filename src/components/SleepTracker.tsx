@@ -4,7 +4,7 @@ import { format } from "date-fns";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Check } from "lucide-react";
+import { Check, Moon } from "lucide-react";
 import { toast } from "sonner";
 
 interface SleepTrackerProps {
@@ -53,6 +53,16 @@ export const SleepTracker = ({ date }: SleepTrackerProps) => {
   
   return (
     <div className="space-y-6">
+      <div className="text-center mb-4">
+        <div className="flex justify-center items-center gap-2 text-2xl font-bold text-emotionPurple mb-2">
+          <Moon className="h-6 w-6 text-emotionPurple" />
+          <span>{sleepHours} hours of sleep</span>
+        </div>
+        <p className="text-sm text-gray-500">
+          {sleepHours < 7 ? "Below recommended range (7-9 hours)" : "Within recommended range (7-9 hours)"}
+        </p>
+      </div>
+      
       <div className="space-y-2">
         <div className="flex justify-between items-center">
           <Label htmlFor="sleep-hours">Hours of Sleep: {sleepHours}</Label>
