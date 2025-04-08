@@ -4,7 +4,7 @@ import { format } from "date-fns";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Check, Moon } from "lucide-react";
+import { Check, Moon, Save } from "lucide-react";
 import { toast } from "sonner";
 
 interface SleepTrackerProps {
@@ -117,7 +117,10 @@ export const SleepTracker = ({ date }: SleepTrackerProps) => {
             Update Sleep Hours
           </>
         ) : (
-          "Save Sleep Hours"
+          <>
+            <Save className="mr-2 h-4 w-4" />
+            Save Sleep Hours
+          </>
         )}
       </Button>
     </div>
