@@ -5,7 +5,7 @@ import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Check, Bell, Meditation } from "lucide-react";
+import { Check, Bell, Brain } from "lucide-react";
 import { toast } from "sonner";
 
 interface MeditationTrackerProps {

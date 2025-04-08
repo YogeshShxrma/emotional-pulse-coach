@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { format, subDays, addDays } from "date-fns";
-import { Calendar, ArrowLeft, ArrowRight, Droplet, Clock, Meditation } from "lucide-react";
+import { Calendar, ArrowLeft, ArrowRight, Droplet, Clock, Brain } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -90,7 +90,7 @@ const DailyRoutineTracker = () => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
-                <Meditation className="mr-2 h-5 w-5 text-amber-500" />
+                <Brain className="mr-2 h-5 w-5 text-amber-500" />
                 Meditation Tracker
               </CardTitle>
               <CardDescription>Track your meditation time and set reminders</CardDescription>
