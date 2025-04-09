@@ -1,6 +1,7 @@
 
 import { motion } from "framer-motion";
 import ChatBot from "@/components/ChatBot";
+import TherapyBookingButton from "@/components/TherapyBookingButton";
 
 const ChatBotPage = () => {
   return (
@@ -21,6 +22,9 @@ const ChatBotPage = () => {
       <div className="flex justify-center">
         <ChatBot />
       </div>
+      
+      {/* Therapy Booking Button */}
+      <TherapyBookingButton />
     </div>
   );
 };
