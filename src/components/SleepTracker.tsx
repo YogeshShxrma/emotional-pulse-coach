@@ -54,8 +54,8 @@ export const SleepTracker = ({ date }: SleepTrackerProps) => {
   return (
     <div className="space-y-6">
       <div className="text-center mb-4">
-        <div className="flex justify-center items-center gap-2 text-2xl font-bold text-purple-300 mb-2">
-          <Moon className="h-6 w-6 text-purple-300" />
+        <div className="flex justify-center items-center gap-2 text-2xl font-bold text-blue-400 mb-2">
+          <Moon className="h-6 w-6 text-blue-400" />
           <span>{sleepHours} hours of sleep</span>
         </div>
         <p className="text-sm text-gray-500">
@@ -109,7 +109,7 @@ export const SleepTracker = ({ date }: SleepTrackerProps) => {
       
       <Button 
         onClick={saveSleepData}
-        className="w-full bg-purple-600 hover:bg-purple-700"
+        className="w-full bg-blue-600 hover:bg-blue-700"
         type="button"
       >
         {isSaved ? (

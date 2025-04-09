@@ -22,6 +22,26 @@ const Layout = () => {
     <div className="min-h-screen flex flex-col bg-background">
       <main className="flex-1 overflow-hidden">
         <div className="container max-w-screen-xl mx-auto py-4 px-4 sm:px-6 relative min-h-[calc(100vh-4rem)]">
+          {/* Emergency Button - Repositioned to right side */}
+          {isEmerging && (
+            <motion.div 
+              className="fixed right-6 bottom-20 z-40"
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ 
+                type: "spring",
+                stiffness: 300,
+                damping: 20
+              }}
+            >
+              <button 
+                className="flex flex-col items-center justify-center w-14 h-14 rounded-full bg-emotionRed text-white shadow-lg"
+                onClick={() => alert("Emergency contact alerted")}
+              >
+                <AlertCircle className="w-7 h-7" />
+              </button>
+            </motion.div>
+          )}
           <Outlet />
         </div>
       </main>
@@ -38,28 +58,6 @@ const Layout = () => {
             <NavItem to="/scan" label="Scan" icon={Camera} isActive={location.pathname === "/scan"} />
             <NavItem to="/chat" label="Chat" icon={MessageCircle} isActive={location.pathname === "/chat"} />
             <NavItem to="/daily-check-in" label="Check-In" icon={Clock} isActive={location.pathname === "/daily-check-in"} />
-            
-            {/* Emergency Button */}
-            {isEmerging && (
-              <motion.div 
-                className="relative"
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ 
-                  type: "spring",
-                  stiffness: 300,
-                  damping: 20
-                }}
-              >
-                <button 
-                  className="flex flex-col items-center justify-center w-14 h-14 rounded-full bg-emotionRed text-white absolute -top-8 left-1/2 transform -translate-x-1/2 shadow-lg"
-                  onClick={() => alert("Emergency contact alerted")}
-                >
-                  <AlertCircle className="w-7 h-7" />
-                </button>
-              </motion.div>
-            )}
-            
             <NavItem to="/mood" label="Mood" icon={BarChart3} isActive={location.pathname === "/mood"} />
             <NavItem to="/settings" label="Settings" icon={Settings} isActive={location.pathname === "/settings"} />
           </div>
