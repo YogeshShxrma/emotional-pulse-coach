@@ -14,16 +14,213 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      daily_checkins: {
+        Row: {
+          created_at: string | null
+          date: string
+          id: string
+          notes: string | null
+          status: Database["public"]["Enums"]["checkin_status"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          date?: string
+          id?: string
+          notes?: string | null
+          status: Database["public"]["Enums"]["checkin_status"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          id?: string
+          notes?: string | null
+          status?: Database["public"]["Enums"]["checkin_status"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      mood_tracker: {
+        Row: {
+          anxiety_level: number | null
+          created_at: string | null
+          id: string
+          mood: Database["public"]["Enums"]["mood_level"]
+          notes: string | null
+          sleep_hours: number | null
+          stress_level: number | null
+          user_id: string
+        }
+        Insert: {
+          anxiety_level?: number | null
+          created_at?: string | null
+          id?: string
+          mood: Database["public"]["Enums"]["mood_level"]
+          notes?: string | null
+          sleep_hours?: number | null
+          stress_level?: number | null
+          user_id: string
+        }
+        Update: {
+          anxiety_level?: number | null
+          created_at?: string | null
+          id?: string
+          mood?: Database["public"]["Enums"]["mood_level"]
+          notes?: string | null
+          sleep_hours?: number | null
+          stress_level?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string | null
+          first_name: string | null
+          id: string
+          last_name: string | null
+          role: Database["public"]["Enums"]["user_role"]
+          specialty: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          role?: Database["public"]["Enums"]["user_role"]
+          specialty?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          role?: Database["public"]["Enums"]["user_role"]
+          specialty?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      therapy_sessions: {
+        Row: {
+          created_at: string | null
+          id: string
+          notes: string | null
+          session_date: string
+          session_type: string
+          status: Database["public"]["Enums"]["session_status"]
+          therapist_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          session_date: string
+          session_type?: string
+          status?: Database["public"]["Enums"]["session_status"]
+          therapist_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          session_date?: string
+          session_type?: string
+          status?: Database["public"]["Enums"]["session_status"]
+          therapist_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_badges: {
+        Row: {
+          badge_name: string
+          badge_type: string
+          earned_at: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          badge_name: string
+          badge_type: string
+          earned_at?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          badge_name?: string
+          badge_type?: string
+          earned_at?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_streaks: {
+        Row: {
+          created_at: string | null
+          current_streak: number | null
+          id: string
+          last_checkin_date: string | null
+          longest_streak: number | null
+          total_checkins: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          current_streak?: number | null
+          id?: string
+          last_checkin_date?: string | null
+          longest_streak?: number | null
+          total_checkins?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          current_streak?: number | null
+          id?: string
+          last_checkin_date?: string | null
+          longest_streak?: number | null
+          total_checkins?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      update_user_streak: {
+        Args: { user_id_param: string }
+        Returns: undefined
+      }
     }
     Enums: {
-      [_ in never]: never
+      checkin_status: "great" | "okay" | "struggling"
+      mood_level: "very_sad" | "sad" | "neutral" | "happy" | "very_happy"
+      session_status: "pending" | "confirmed" | "cancelled" | "completed"
+      user_role: "user" | "therapist"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +347,11 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      checkin_status: ["great", "okay", "struggling"],
+      mood_level: ["very_sad", "sad", "neutral", "happy", "very_happy"],
+      session_status: ["pending", "confirmed", "cancelled", "completed"],
+      user_role: ["user", "therapist"],
+    },
   },
 } as const

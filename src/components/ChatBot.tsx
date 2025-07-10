@@ -5,8 +5,8 @@ import { Send, Bot, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { generateAIResponse, getApiKey, ChatMessage } from "@/utils/openaiService";
-import ApiKeyInput from "./ApiKeyInput";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 
 interface Message {
@@ -41,8 +41,7 @@ const ChatBot = () => {
   const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [hasApiKey, setHasApiKey] = useState(!!getApiKey());
-  const [quotaExceeded, setQuotaExceeded] = useState(false);
+  const { user, profile } = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -69,34 +68,26 @@ const ChatBot = () => {
     setIsTyping(true);
 
     try {
-      // Prepare conversation history for OpenAI with proper typing
-      const conversationHistory: ChatMessage[] = [
-        { role: 'system', content: SYSTEM_PROMPT },
-        ...messages.map(msg => ({
-          role: msg.isUser ? 'user' : 'assistant',
-          content: msg.text
-        })) as ChatMessage[],
-        { role: 'user', content: input }
-      ];
+      const context = profile ? `User is a ${profile.role}. Name: ${profile.first_name} ${profile.last_name}` : 'No user context available';
 
-      // Get response from OpenAI
-      const aiResponse = await generateAIResponse(conversationHistory);
+      const { data, error } = await supabase.functions.invoke('ai-chat', {
+        body: {
+          message: input,
+          context: context
+        }
+      });
+
+      if (error) throw error;
 
       const botMessage: Message = {
         id: Date.now().toString(),
-        text: aiResponse,
+        text: data.response || "I'm here to help. Could you please rephrase your question?",
         isUser: false,
         timestamp: new Date(),
       };
 
       setMessages((prevMessages) => [...prevMessages, botMessage]);
-      setQuotaExceeded(false);
     } catch (error) {
-      // Check if error is related to quota
-      const errorMessage = error instanceof Error ? error.message : "";
-      if (errorMessage.includes('quota') || errorMessage.includes('exceeded')) {
-        setQuotaExceeded(true);
-      }
       
       // Fallback to basic responses if API fails
       const lowerCaseMessage = input.toLowerCase();
@@ -139,14 +130,8 @@ const ChatBot = () => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  const handleApiKeySet = () => {
-    setHasApiKey(true);
-    setQuotaExceeded(false);
-  };
-
   return (
     <div className="flex flex-col h-full w-full max-w-md mx-auto">
-      {(!hasApiKey || quotaExceeded) && <ApiKeyInput onKeySet={handleApiKeySet} quotaExceeded={quotaExceeded} />}
       
       <motion.div 
         className="flex-1 overflow-hidden flex flex-col bg-white dark:bg-gray-800 rounded-3xl shadow-lg mb-4"
@@ -162,7 +147,7 @@ const ChatBot = () => {
           <div>
             <h3 className="font-semibold">AI Mental Health Coach</h3>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              {hasApiKey && !quotaExceeded ? "Ready to chat" : "Basic responses (add/update API key for full features)"}
+              Ready to chat
             </p>
           </div>
         </div>

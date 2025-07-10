@@ -1,15 +1,25 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { 
   Calendar, 
   ArrowLeft, 
   ArrowRight, 
-  Info
+  Info,
+  Plus,
+  Save
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
 import { 
   BarChart, 
   LineChart, 
@@ -56,8 +66,125 @@ const sleepData = [
   { date: 'Sun', hours: 7.7 },
 ];
 
+interface MoodEntry {
+  id: string;
+  mood: string;
+  notes?: string;
+  sleep_hours?: number;
+  anxiety_level?: number;
+  stress_level?: number;
+  created_at: string;
+}
+
 const MoodTracker = () => {
+  const { user } = useAuth();
   const [currentWeek, setCurrentWeek] = useState("May 1 - May 7, 2023");
+  const [moodEntries, setMoodEntries] = useState<MoodEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  
+  // Form state
+  const [mood, setMood] = useState<string>('');
+  const [notes, setNotes] = useState('');
+  const [sleepHours, setSleepHours] = useState('');
+  const [anxietyLevel, setAnxietyLevel] = useState('');
+  const [stressLevel, setStressLevel] = useState('');
+
+  useEffect(() => {
+    if (user) {
+      loadMoodEntries();
+    }
+  }, [user]);
+
+  const loadMoodEntries = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('mood_tracker')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false })
+        .limit(30);
+
+      if (error) throw error;
+      setMoodEntries(data || []);
+    } catch (error) {
+      console.error('Error loading mood entries:', error);
+    }
+  };
+
+  const handleSubmitMood = async () => {
+    if (!mood) {
+      toast({
+        title: "Missing mood",
+        description: "Please select your mood level",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('mood_tracker')
+        .insert({
+          user_id: user?.id,
+          mood: mood as any,
+          notes: notes || null,
+          sleep_hours: sleepHours ? parseFloat(sleepHours) : null,
+          anxiety_level: anxietyLevel ? parseInt(anxietyLevel) : null,
+          stress_level: stressLevel ? parseInt(stressLevel) : null,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Mood entry saved!",
+        description: "Your mood has been recorded successfully.",
+      });
+
+      // Reset form and close dialog
+      setMood('');
+      setNotes('');
+      setSleepHours('');
+      setAnxietyLevel('');
+      setStressLevel('');
+      setDialogOpen(false);
+      
+      // Reload entries
+      await loadMoodEntries();
+    } catch (error) {
+      console.error('Error saving mood entry:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save mood entry. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getMoodEmoji = (moodLevel: string) => {
+    switch (moodLevel) {
+      case 'very_happy': return '😄';
+      case 'happy': return '😊';
+      case 'neutral': return '😐';
+      case 'sad': return '😢';
+      case 'very_sad': return '😭';
+      default: return '😐';
+    }
+  };
+
+  const getMoodColor = (moodLevel: string) => {
+    switch (moodLevel) {
+      case 'very_happy': return 'text-green-600';
+      case 'happy': return 'text-green-500';
+      case 'neutral': return 'text-yellow-500';
+      case 'sad': return 'text-orange-500';
+      case 'very_sad': return 'text-red-500';
+      default: return 'text-gray-500';
+    }
+  };
   
   return (
     <motion.div 
@@ -82,10 +209,140 @@ const MoodTracker = () => {
               <Calendar className="mr-2 h-4 w-4 text-emotionBlue" />
               <span className="text-sm font-medium">{currentWeek}</span>
             </div>
-            <Button variant="outline" size="icon">
-              <ArrowRight className="h-4 w-4" />
-            </Button>
+            <div className="flex gap-2">
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Entry
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add Mood Entry</DialogTitle>
+                    <DialogDescription>
+                      Track your mood and emotional state
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="mood">How are you feeling?</Label>
+                      <Select value={mood} onValueChange={setMood}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select your mood" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="very_happy">😄 Very Happy</SelectItem>
+                          <SelectItem value="happy">😊 Happy</SelectItem>
+                          <SelectItem value="neutral">😐 Neutral</SelectItem>
+                          <SelectItem value="sad">😢 Sad</SelectItem>
+                          <SelectItem value="very_sad">😭 Very Sad</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="notes">Notes (optional)</Label>
+                      <Textarea
+                        id="notes"
+                        placeholder="How are you feeling? What's on your mind?"
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="sleep">Sleep Hours</Label>
+                        <Input
+                          id="sleep"
+                          type="number"
+                          step="0.5"
+                          min="0"
+                          max="24"
+                          placeholder="8.5"
+                          value={sleepHours}
+                          onChange={(e) => setSleepHours(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="anxiety">Anxiety Level (1-10)</Label>
+                        <Input
+                          id="anxiety"
+                          type="number"
+                          min="1"
+                          max="10"
+                          placeholder="5"
+                          value={anxietyLevel}
+                          onChange={(e) => setAnxietyLevel(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="stress">Stress Level (1-10)</Label>
+                      <Input
+                        id="stress"
+                        type="number"
+                        min="1"
+                        max="10"
+                        placeholder="5"
+                        value={stressLevel}
+                        onChange={(e) => setStressLevel(e.target.value)}
+                      />
+                    </div>
+
+                    <Button onClick={handleSubmitMood} disabled={loading} className="w-full">
+                      <Save className="h-4 w-4 mr-2" />
+                      {loading ? "Saving..." : "Save Entry"}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              <Button variant="outline" size="icon">
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
+
+          {/* Recent Mood Entries */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Mood Entries</CardTitle>
+              <CardDescription>Your latest mood tracking entries</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {moodEntries.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">No mood entries yet</p>
+                  <p className="text-sm text-muted-foreground">Start tracking your mood to see patterns</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {moodEntries.slice(0, 10).map((entry) => (
+                    <div key={entry.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">{getMoodEmoji(entry.mood)}</span>
+                        <div>
+                          <p className={`font-medium capitalize ${getMoodColor(entry.mood)}`}>
+                            {entry.mood.replace('_', ' ')}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {new Date(entry.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right text-sm text-muted-foreground">
+                        {entry.sleep_hours && <p>Sleep: {entry.sleep_hours}h</p>}
+                        {entry.anxiety_level && <p>Anxiety: {entry.anxiety_level}/10</p>}
+                        {entry.stress_level && <p>Stress: {entry.stress_level}/10</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
           
           <Card>
             <CardHeader>
