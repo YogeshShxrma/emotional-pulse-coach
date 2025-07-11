@@ -13,9 +13,9 @@ const ChatBotPage = () => {
         transition={{ duration: 0.3 }}
         className="text-center mb-6"
       >
-        <h1 className="text-2xl font-bold mb-2">AI Therapy Chat</h1>
+        <h1 className="text-2xl font-bold mb-2">Menti AI</h1>
         <p className="text-gray-600 dark:text-gray-400 max-w-md mx-auto">
-          Talk to your AI mental health coach for support and guidance
+          Your compassionate AI mental health companion. A safe space to share, explore, and heal.
         </p>
       </motion.div>
       

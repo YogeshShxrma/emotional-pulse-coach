@@ -1,9 +1,9 @@
-
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Bot, User } from "lucide-react";
+import { Send, Bot, User, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -14,33 +14,32 @@ interface Message {
   text: string;
   isUser: boolean;
   timestamp: Date;
+  emotionalTone?: string;
 }
 
 const INITIAL_MESSAGES: Message[] = [
   {
     id: "1",
-    text: "Hello! I'm your AI mental health coach. How are you feeling today?",
+    text: "Hi there! I'm Menti AI, your personal mental health companion. I'm here to listen, support, and help you navigate whatever you're going through. How are you feeling today?",
     isUser: false,
     timestamp: new Date(),
   },
 ];
 
-const SYSTEM_PROMPT = `You are a compassionate mental health coach. Your role is to provide supportive, empathetic responses that help the user explore their emotions and develop coping strategies. 
-
-You should:
-- Respond with empathy and validation
-- Ask thoughtful follow-up questions
-- Suggest evidence-based coping strategies when appropriate
-- Never give medical advice or attempt to diagnose
-- Keep responses concise (2-4 sentences max)
-- Focus on emotional support and gentle guidance
-
-If the user expresses severe distress or suicidal thoughts, encourage them to contact a mental health professional or a crisis helpline immediately.`;
+const QUICK_REPLIES = [
+  "I'm feeling anxious",
+  "I want motivation", 
+  "I need to vent",
+  "Suggest a calming exercise"
+];
 
 const ChatBot = () => {
   const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [messageCount, setMessageCount] = useState(1);
+  const [showCrisisAlert, setShowCrisisAlert] = useState(false);
   const { user, profile } = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -50,88 +49,183 @@ const ChatBot = () => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, isTyping]);
 
-  const handleSendMessage = async () => {
-    if (!input.trim()) return;
+  // Initialize session when component mounts
+  useEffect(() => {
+    if (user && !sessionId) {
+      initializeSession();
+    }
+  }, [user]);
+
+  const initializeSession = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('chat_sessions')
+        .insert({
+          user_id: user.id,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      setSessionId(data.id);
+    } catch (error) {
+      console.error('Error creating session:', error);
+    }
+  };
+
+  const handleSendMessage = async (messageText?: string) => {
+    const textToSend = messageText || input.trim();
+    if (!textToSend) return;
 
     // Add user message
     const userMessage: Message = {
       id: Date.now().toString(),
-      text: input,
+      text: textToSend,
       isUser: true,
       timestamp: new Date(),
     };
 
-    setMessages((prevMessages) => [...prevMessages, userMessage]);
+    setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsTyping(true);
 
-    try {
-      const context = profile ? `User is a ${profile.role}. Name: ${profile.first_name} ${profile.last_name}` : 'No user context available';
+    // Show typing animation for realism
+    setTimeout(async () => {
+      try {
+        const context = profile ? `User ID: ${user?.id}. User is a ${profile.role}. Name: ${profile.first_name} ${profile.last_name}` : `User ID: ${user?.id}. No user context available`;
 
-      const { data, error } = await supabase.functions.invoke('ai-chat', {
-        body: {
-          message: input,
-          context: context
+        const { data, error } = await supabase.functions.invoke('ai-chat', {
+          body: {
+            message: textToSend,
+            context: context,
+            sessionId: sessionId,
+            messageCount: messageCount
+          }
+        });
+
+        if (error) throw error;
+
+        // Check for crisis response
+        if (data.isCrisis) {
+          setShowCrisisAlert(true);
+          setTimeout(() => setShowCrisisAlert(false), 10000); // Hide after 10 seconds
         }
-      });
 
-      if (error) throw error;
+        const botMessage: Message = {
+          id: Date.now().toString(),
+          text: data.response || "I'm here to help. Could you please rephrase your question?",
+          isUser: false,
+          timestamp: new Date(),
+          emotionalTone: data.emotionalTone
+        };
 
-      const botMessage: Message = {
-        id: Date.now().toString(),
-        text: data.response || "I'm here to help. Could you please rephrase your question?",
-        isUser: false,
-        timestamp: new Date(),
-      };
+        setMessages((prev) => [...prev, botMessage]);
+        setMessageCount(data.messageCount || messageCount + 1);
 
-      setMessages((prevMessages) => [...prevMessages, botMessage]);
-    } catch (error) {
-      
-      // Fallback to basic responses if API fails
-      const lowerCaseMessage = input.toLowerCase();
-      let response = "";
+      } catch (error) {
+        console.error('Error:', error);
+        
+        // Enhanced fallback responses based on emotional context
+        const lowerCaseMessage = textToSend.toLowerCase();
+        let response = "";
 
-      if (lowerCaseMessage.includes("sad") || lowerCaseMessage.includes("depress")) {
-        response = "I'm sorry to hear you're feeling down. Remember that it's okay to not be okay sometimes. Would you like to explore some gentle mood-lifting activities?";
-      } else if (lowerCaseMessage.includes("anxious") || lowerCaseMessage.includes("stress") || lowerCaseMessage.includes("worried")) {
-        response = "I notice you're feeling anxious. Let's try a quick breathing exercise: breathe in for 4 counts, hold for 4, and exhale for 6. Would you like to continue with more calming techniques?";
-      } else if (lowerCaseMessage.includes("happy") || lowerCaseMessage.includes("good") || lowerCaseMessage.includes("great")) {
-        response = "I'm glad you're feeling positive! What's contributed to your good mood today? Recognizing these factors can help us build on them.";
-      } else if (lowerCaseMessage.includes("angry") || lowerCaseMessage.includes("upset") || lowerCaseMessage.includes("frustrat")) {
-        response = "I understand you're feeling frustrated. These emotions are valid. Would it help to talk about what triggered these feelings?";
-      } else if (lowerCaseMessage.includes("tired") || lowerCaseMessage.includes("exhausted") || lowerCaseMessage.includes("fatigue")) {
-        response = "Being tired can really affect our mental state. Have you been able to prioritize rest lately? Perhaps we could discuss some gentle energy-boosting strategies.";
-      } else if (
-        lowerCaseMessage.includes("hello") || 
-        lowerCaseMessage.includes("hi") || 
-        lowerCaseMessage.includes("hey")
-      ) {
-        response = "Hello! How are you feeling today? I'm here to listen and support you.";
-      } else {
-        response = "Thank you for sharing. Can you tell me more about how that makes you feel? I'm here to listen and offer support without judgment.";
+        if (lowerCaseMessage.includes("anxious") || lowerCaseMessage.includes("worried") || lowerCaseMessage.includes("panic")) {
+          response = "I can hear that you're feeling anxious right now. That must be really uncomfortable. Let's try taking a moment to ground ourselves - can you name 5 things you can see around you right now?";
+        } else if (lowerCaseMessage.includes("sad") || lowerCaseMessage.includes("depress") || lowerCaseMessage.includes("hopeless")) {
+          response = "I'm so sorry you're feeling this way. Depression can make everything feel so heavy. You're not alone in this, and reaching out shows incredible strength. What's one small thing that used to bring you even a tiny bit of joy?";
+        } else if (lowerCaseMessage.includes("angry") || lowerCaseMessage.includes("frustrated") || lowerCaseMessage.includes("mad")) {
+          response = "It sounds like you're really frustrated right now, and that's completely valid. Sometimes anger is telling us something important. Can you help me understand what's been building up for you?";
+        } else if (lowerCaseMessage.includes("stressed") || lowerCaseMessage.includes("overwhelm")) {
+          response = "Feeling overwhelmed can be so draining. Let's take this one piece at a time - you don't have to carry it all at once. What feels like the most pressing thing on your mind right now?";
+        } else if (lowerCaseMessage.includes("motivation")) {
+          response = "I believe in your strength, even when you can't feel it. Sometimes motivation comes after we take action, not before. What's one tiny step you could take today, no matter how small?";
+        } else if (lowerCaseMessage.includes("vent") || lowerCaseMessage.includes("talk")) {
+          response = "I'm here to listen to whatever you need to share. This is your safe space - no judgment, just understanding. What's been weighing on your heart?";
+        } else {
+          response = "Thank you for sharing that with me. I can sense this is important to you. Can you tell me a bit more about how that's been affecting you? I'm here to listen and support you.";
+        }
+
+        const botMessage: Message = {
+          id: Date.now().toString(),
+          text: response,
+          isUser: false,
+          timestamp: new Date(),
+        };
+
+        setMessages((prev) => [...prev, botMessage]);
+        setMessageCount(prev => prev + 1);
+
+        toast({
+          title: "Connection Issue",
+          description: "I'm using offline responses. Full features will return shortly.",
+          variant: "default"
+        });
+      } finally {
+        setIsTyping(false);
       }
-
-      const botMessage: Message = {
-        id: Date.now().toString(),
-        text: response,
-        isUser: false,
-        timestamp: new Date(),
-      };
-
-      setMessages((prevMessages) => [...prevMessages, botMessage]);
-    } finally {
-      setIsTyping(false);
-    }
+    }, 1000 + Math.random() * 2000); // Random typing delay for realism
   };
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  const TypingIndicator = () => (
+    <motion.div
+      className="flex items-center mb-4 max-w-[80%]"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+    >
+      <div className="w-8 h-8 rounded-full bg-emotionTeal flex items-center justify-center text-white mr-2 flex-shrink-0">
+        <Bot className="w-4 h-4" />
+      </div>
+      <div className="bg-gray-100 dark:bg-gray-700 rounded-2xl rounded-tl-none py-3 px-4">
+        <div className="flex space-x-1">
+          <motion.div 
+            className="w-2 h-2 rounded-full bg-emotionTeal"
+            animate={{ scale: [1, 1.2, 1] }}
+            transition={{ duration: 1, repeat: Infinity, delay: 0 }}
+          />
+          <motion.div 
+            className="w-2 h-2 rounded-full bg-emotionTeal"
+            animate={{ scale: [1, 1.2, 1] }}
+            transition={{ duration: 1, repeat: Infinity, delay: 0.2 }}
+          />
+          <motion.div 
+            className="w-2 h-2 rounded-full bg-emotionTeal"
+            animate={{ scale: [1, 1.2, 1] }}
+            transition={{ duration: 1, repeat: Infinity, delay: 0.4 }}
+          />
+        </div>
+      </div>
+    </motion.div>
+  );
+
   return (
     <div className="flex flex-col h-full w-full max-w-md mx-auto">
+      {/* Crisis Alert */}
+      <AnimatePresence>
+        {showCrisisAlert && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="mb-4"
+          >
+            <Alert className="border-red-500 bg-red-50 dark:bg-red-950">
+              <AlertTriangle className="h-4 w-4 text-red-600" />
+              <AlertDescription className="text-red-800 dark:text-red-200">
+                <strong>Crisis Support Available:</strong> If you're in immediate danger, please call 911 or go to your nearest emergency room.
+              </AlertDescription>
+            </Alert>
+          </motion.div>
+        )}
+      </AnimatePresence>
       
       <motion.div 
         className="flex-1 overflow-hidden flex flex-col bg-white dark:bg-gray-800 rounded-3xl shadow-lg mb-4"
@@ -141,58 +235,66 @@ const ChatBot = () => {
       >
         {/* Chat header */}
         <div className="p-4 border-b dark:border-gray-700 flex items-center">
-          <div className="w-10 h-10 rounded-full bg-emotionTeal flex items-center justify-center text-white mr-3">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emotionTeal to-emotionBlue flex items-center justify-center text-white mr-3 shadow-lg">
             <Bot className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="font-semibold">AI Mental Health Coach</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Ready to chat
+            <h3 className="font-semibold text-gray-900 dark:text-white">Menti AI</h3>
+            <p className="text-xs text-emotionTeal dark:text-emotionTeal">
+              Your mental health companion
             </p>
+          </div>
+          <div className="ml-auto">
+            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" title="Online" />
           </div>
         </div>
         
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 scroll-hidden">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
           <AnimatePresence>
             {messages.map((message) => (
               <motion.div
                 key={message.id}
                 className={cn(
-                  "mb-4 max-w-[80%]",
+                  "max-w-[85%]",
                   message.isUser ? "ml-auto" : "mr-auto"
                 )}
                 initial={{ opacity: 0, y: 10, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.2 }}
+                transition={{ duration: 0.3 }}
               >
-                <div className="flex items-start">
+                <div className={cn("flex items-start", message.isUser ? "justify-end" : "justify-start")}>
                   {!message.isUser && (
-                    <div className="w-8 h-8 rounded-full bg-emotionTeal flex items-center justify-center text-white mr-2 mt-1 flex-shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emotionTeal to-emotionBlue flex items-center justify-center text-white mr-2 mt-1 flex-shrink-0 shadow-md">
                       <Bot className="w-4 h-4" />
                     </div>
                   )}
                   
-                  <div
-                    className={cn(
-                      "rounded-2xl py-2 px-4",
-                      message.isUser
-                        ? "bg-emotionBlue text-white rounded-tr-none"
-                        : "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-tl-none"
-                    )}
-                  >
-                    <p className="text-sm">{message.text}</p>
+                  <div className="flex flex-col">
+                    <div
+                      className={cn(
+                        "rounded-2xl py-3 px-4 shadow-sm",
+                        message.isUser
+                          ? "bg-gradient-to-r from-emotionBlue to-blue-600 text-white rounded-tr-none"
+                          : "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-tl-none border border-gray-200 dark:border-gray-600"
+                      )}
+                    >
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.text}</p>
+                    </div>
                     <div className={cn(
-                      "text-xs mt-1",
-                      message.isUser ? "text-blue-100" : "text-gray-500 dark:text-gray-400"
+                      "text-xs mt-1 px-2",
+                      message.isUser ? "text-right text-blue-600 dark:text-blue-400" : "text-left text-gray-500 dark:text-gray-400"
                     )}>
                       {formatTime(message.timestamp)}
+                      {message.emotionalTone && !message.isUser && (
+                        <span className="ml-2 text-emotionTeal">• {message.emotionalTone}</span>
+                      )}
                     </div>
                   </div>
                   
                   {message.isUser && (
-                    <div className="w-8 h-8 rounded-full bg-emotionBlue flex items-center justify-center text-white ml-2 mt-1 flex-shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emotionBlue to-blue-600 flex items-center justify-center text-white ml-2 mt-1 flex-shrink-0 shadow-md">
                       <User className="w-4 h-4" />
                     </div>
                   )}
@@ -201,53 +303,57 @@ const ChatBot = () => {
             ))}
           </AnimatePresence>
           
-          {isTyping && (
-            <motion.div
-              className="flex items-center mb-4 max-w-[80%]"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              <div className="w-8 h-8 rounded-full bg-emotionTeal flex items-center justify-center text-white mr-2 flex-shrink-0">
-                <Bot className="w-4 h-4" />
-              </div>
-              <div className="bg-gray-100 dark:bg-gray-700 rounded-2xl rounded-tl-none py-2 px-4">
-                <div className="flex space-x-1">
-                  <div className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500 animate-bounce" style={{ animationDelay: "0ms" }}></div>
-                  <div className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500 animate-bounce" style={{ animationDelay: "150ms" }}></div>
-                  <div className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500 animate-bounce" style={{ animationDelay: "300ms" }}></div>
-                </div>
-              </div>
-            </motion.div>
-          )}
+          {isTyping && <TypingIndicator />}
           
           <div ref={messagesEndRef} />
         </div>
+
+        {/* Quick Reply Buttons */}
+        <div className="px-4 pb-2">
+          <div className="flex flex-wrap gap-2 mb-3">
+            {QUICK_REPLIES.map((reply, index) => (
+              <motion.button
+                key={index}
+                onClick={() => handleSendMessage(reply)}
+                className="px-3 py-1.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full hover:bg-emotionTeal hover:text-white transition-colors duration-200 border border-gray-200 dark:border-gray-600"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                disabled={isTyping}
+              >
+                {reply}
+              </motion.button>
+            ))}
+          </div>
+        </div>
         
         {/* Input area */}
-        <div className="p-4 border-t dark:border-gray-700">
+        <div className="p-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-b-3xl">
           <form 
             onSubmit={(e) => {
               e.preventDefault();
               handleSendMessage();
             }}
-            className="flex items-center"
+            className="flex items-center gap-3"
           >
             <Input
               type="text"
-              placeholder="Type your message..."
+              placeholder="Share what's on your mind..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              className="flex-1 rounded-full py-3 px-4 bg-gray-100 dark:bg-gray-700 border-none focus-visible:ring-2 focus-visible:ring-emotionBlue"
+              className="flex-1 rounded-full py-3 px-4 bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 focus-visible:ring-2 focus-visible:ring-emotionTeal focus-visible:border-emotionTeal text-sm"
+              disabled={isTyping}
             />
             <Button
               type="submit"
-              className="ml-2 w-10 h-10 p-0 rounded-full bg-emotionBlue hover:bg-emotionBlue-dark text-white flex items-center justify-center"
+              className="w-11 h-11 p-0 rounded-full bg-gradient-to-r from-emotionTeal to-emotionBlue hover:from-emotionTeal-600 hover:to-emotionBlue-600 text-white flex items-center justify-center shadow-lg transition-all duration-200 hover:shadow-xl"
               disabled={!input.trim() || isTyping}
             >
-              <Send className="w-5 h-5" />
+              <Send className="w-4 h-4" />
             </Button>
           </form>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
+            Menti AI provides support, not medical advice. For emergencies, contact your local crisis line.
+          </p>
         </div>
       </motion.div>
     </div>

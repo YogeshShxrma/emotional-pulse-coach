@@ -14,6 +14,75 @@ export type Database = {
   }
   public: {
     Tables: {
+      chat_sessions: {
+        Row: {
+          created_at: string
+          emotional_summary: string | null
+          id: string
+          message_count: number | null
+          session_end: string | null
+          session_start: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          emotional_summary?: string | null
+          id?: string
+          message_count?: number | null
+          session_end?: string | null
+          session_start?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          emotional_summary?: string | null
+          id?: string
+          message_count?: number | null
+          session_end?: string | null
+          session_start?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      conversations: {
+        Row: {
+          created_at: string
+          emotional_tone: string | null
+          id: string
+          message: string
+          message_count: number | null
+          response: string
+          session_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          emotional_tone?: string | null
+          id?: string
+          message: string
+          message_count?: number | null
+          response: string
+          session_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          emotional_tone?: string | null
+          id?: string
+          message?: string
+          message_count?: number | null
+          response?: string
+          session_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       daily_checkins: {
         Row: {
           created_at: string | null
