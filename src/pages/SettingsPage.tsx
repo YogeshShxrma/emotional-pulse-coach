@@ -8,18 +8,52 @@ import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import EmergencyAlert from "@/components/EmergencyAlert";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect } from "react";
 
 const SettingsPage = () => {
+  const { signOut, user, profile } = useAuth();
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [emergencyContactsEnabled, setEmergencyContactsEnabled] = useState(true);
   const [biometricLoginEnabled, setBiometricLoginEnabled] = useState(false);
   const [dataCollectionEnabled, setDataCollectionEnabled] = useState(true);
   const [isEmergencyAlertOpen, setIsEmergencyAlertOpen] = useState(false);
+  const [userStreaks, setUserStreaks] = useState<any>(null);
   
+  useEffect(() => {
+    if (user) {
+      fetchUserStreaks();
+    }
+  }, [user]);
+
+  const fetchUserStreaks = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("user_streaks")
+        .select("*")
+        .eq("user_id", user?.id)
+        .single();
+
+      if (error) throw error;
+      setUserStreaks(data);
+    } catch (error) {
+      console.error("Error fetching user streaks:", error);
+    }
+  };
+
   const toggleTheme = () => {
     setTheme(theme === "light" ? "dark" : "light");
     // In a real app, this would change the theme
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
   };
   
   return (
@@ -38,6 +72,48 @@ const SettingsPage = () => {
       </motion.div>
       
       <div className="max-w-xl mx-auto space-y-6">
+        {/* User Profile & Streaks */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center">
+              <User className="w-4 h-4 mr-2 text-emotionBlue" />
+              Profile & Progress
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center space-x-4 mb-4">
+              <div className="w-16 h-16 rounded-full bg-emotionBlue-light dark:bg-emotionBlue-dark/20 flex items-center justify-center">
+                <User className="w-8 h-8 text-emotionBlue" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg">
+                  {profile?.first_name} {profile?.last_name}
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {user?.email}
+                </p>
+              </div>
+            </div>
+            
+            {userStreaks && (
+              <div className="grid grid-cols-3 gap-4 mt-4">
+                <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="text-2xl font-bold text-emotionGreen">{userStreaks.current_streak}</div>
+                  <div className="text-xs text-gray-500">Current Streak</div>
+                </div>
+                <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="text-2xl font-bold text-emotionBlue">{userStreaks.longest_streak}</div>
+                  <div className="text-xs text-gray-500">Longest Streak</div>
+                </div>
+                <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="text-2xl font-bold text-emotionTeal">{userStreaks.total_checkins}</div>
+                  <div className="text-xs text-gray-500">Total Check-ins</div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center">
@@ -175,6 +251,7 @@ const SettingsPage = () => {
         <Button 
           variant="outline" 
           className="w-full flex items-center justify-center h-10 text-gray-700 dark:text-gray-300"
+          onClick={handleSignOut}
         >
           <LogOut className="w-4 h-4 mr-2" />
           Sign Out

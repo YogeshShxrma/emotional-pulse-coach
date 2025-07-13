@@ -16,6 +16,7 @@ import SessionsPage from "./pages/SessionsPage";
 import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
 import DailyCheckInPage from "./pages/DailyCheckInPage";
+import TherapyBookingPage from "./pages/TherapyBookingPage";
 
 const queryClient = new QueryClient();
 
@@ -53,6 +54,7 @@ const AppRoutes = () => {
       <Route element={<Layout />}>
         <Route path="/scan" element={<EmotionScanPage />} />
         <Route path="/chat" element={<ChatBotPage />} />
+        <Route path="/therapy" element={<TherapyBookingPage />} />
         <Route path="/mood" element={<MoodTrackerPage />} />
         <Route path="/sessions" element={<SessionsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
