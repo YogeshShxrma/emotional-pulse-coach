@@ -6,38 +6,104 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Check, Moon, Save } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 interface SleepTrackerProps {
   date: Date;
 }
 
-// Simple in-memory storage for demo purposes
-const sleepDataStore: Record<string, { hours: number; quality: number }> = {};
-
 export const SleepTracker = ({ date }: SleepTrackerProps) => {
+  const { user } = useAuth();
   const dateKey = format(date, "yyyy-MM-dd");
   const [sleepHours, setSleepHours] = useState(7);
   const [sleepQuality, setSleepQuality] = useState(3);
   const [isSaved, setIsSaved] = useState(false);
+  const [loading, setLoading] = useState(false);
   
   // Load saved data when date changes
   useEffect(() => {
-    const savedData = sleepDataStore[dateKey];
-    if (savedData) {
-      setSleepHours(savedData.hours);
-      setSleepQuality(savedData.quality);
-      setIsSaved(true);
-    } else {
-      setSleepHours(7);
-      setSleepQuality(3);
-      setIsSaved(false);
+    if (user) {
+      loadSleepData();
     }
-  }, [dateKey]);
+  }, [dateKey, user]);
+
+  const loadSleepData = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("daily_checkins")
+        .select("*")
+        .eq("user_id", user?.id)
+        .eq("date", dateKey)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "not found"
+      
+      if (data) {
+        // Parse sleep data from notes if stored there, or add sleep_hours column later
+        const sleepData = JSON.parse(data.notes || '{}');
+        setSleepHours(sleepData.sleep_hours || 7);
+        setSleepQuality(sleepData.sleep_quality || 3);
+        setIsSaved(true);
+      } else {
+        setSleepHours(7);
+        setSleepQuality(3);
+        setIsSaved(false);
+      }
+    } catch (error) {
+      console.error('Error loading sleep data:', error);
+    }
+  };
   
-  const saveSleepData = () => {
-    sleepDataStore[dateKey] = { hours: sleepHours, quality: sleepQuality };
-    setIsSaved(true);
-    toast.success("Sleep data saved successfully");
+  const saveSleepData = async () => {
+    setLoading(true);
+    try {
+      const sleepData = {
+        sleep_hours: sleepHours,
+        sleep_quality: sleepQuality
+      };
+
+      const { data: existingData } = await supabase
+        .from("daily_checkins")
+        .select("*")
+        .eq("user_id", user?.id)
+        .eq("date", dateKey)
+        .single();
+
+      if (existingData) {
+        // Update existing record
+        const existingNotes = JSON.parse(existingData.notes || '{}');
+        const updatedNotes = { ...existingNotes, ...sleepData };
+        
+        const { error } = await supabase
+          .from("daily_checkins")
+          .update({ notes: JSON.stringify(updatedNotes) })
+          .eq("user_id", user?.id)
+          .eq("date", dateKey);
+
+        if (error) throw error;
+      } else {
+        // Create new record
+        const { error } = await supabase
+          .from("daily_checkins")
+          .insert({
+            user_id: user?.id,
+            date: dateKey,
+            status: "okay",
+            notes: JSON.stringify(sleepData)
+          });
+
+        if (error) throw error;
+      }
+
+      setIsSaved(true);
+      toast.success("Sleep data saved successfully");
+    } catch (error) {
+      console.error('Error saving sleep data:', error);
+      toast.error("Failed to save sleep data");
+    } finally {
+      setLoading(false);
+    }
   };
   
   const getQualityLabel = (quality: number) => {
@@ -111,8 +177,11 @@ export const SleepTracker = ({ date }: SleepTrackerProps) => {
         onClick={saveSleepData}
         className="w-full bg-blue-600 hover:bg-blue-700"
         type="button"
+        disabled={loading}
       >
-        {isSaved ? (
+        {loading ? (
+          "Saving..."
+        ) : isSaved ? (
           <>
             <Check className="mr-2 h-4 w-4" />
             Update Sleep Hours

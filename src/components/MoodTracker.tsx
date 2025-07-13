@@ -38,34 +38,6 @@ import {
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
-const moodData = [
-  { name: 'Mon', happy: 8, anxious: 3, sad: 2 },
-  { name: 'Tue', happy: 5, anxious: 6, sad: 4 },
-  { name: 'Wed', happy: 7, anxious: 4, sad: 1 },
-  { name: 'Thu', happy: 6, anxious: 5, sad: 3 },
-  { name: 'Fri', happy: 9, anxious: 2, sad: 1 },
-  { name: 'Sat', happy: 8, anxious: 3, sad: 2 },
-  { name: 'Sun', happy: 7, anxious: 4, sad: 3 },
-];
-
-const emotionDistribution = [
-  { name: 'Happy', value: 52 },
-  { name: 'Calm', value: 18 },
-  { name: 'Anxious', value: 12 },
-  { name: 'Sad', value: 8 },
-  { name: 'Angry', value: 10 },
-];
-
-const sleepData = [
-  { date: 'Mon', hours: 6.5 },
-  { date: 'Tue', hours: 7.2 },
-  { date: 'Wed', hours: 6.8 },
-  { date: 'Thu', hours: 8.1 },
-  { date: 'Fri', hours: 7.5 },
-  { date: 'Sat', hours: 8.5 },
-  { date: 'Sun', hours: 7.7 },
-];
-
 interface MoodEntry {
   id: string;
   mood: string;
@@ -83,6 +55,11 @@ const MoodTracker = () => {
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   
+  // Chart data states
+  const [weeklyMoodData, setWeeklyMoodData] = useState<any[]>([]);
+  const [emotionDistribution, setEmotionDistribution] = useState<any[]>([]);
+  const [sleepData, setSleepData] = useState<any[]>([]);
+  
   // Form state
   const [mood, setMood] = useState<string>('');
   const [notes, setNotes] = useState('');
@@ -93,6 +70,7 @@ const MoodTracker = () => {
   useEffect(() => {
     if (user) {
       loadMoodEntries();
+      loadChartData();
     }
   }, [user]);
 
@@ -109,6 +87,87 @@ const MoodTracker = () => {
       setMoodEntries(data || []);
     } catch (error) {
       console.error('Error loading mood entries:', error);
+    }
+  };
+
+  const loadChartData = async () => {
+    try {
+      // Get last 7 days of data for weekly view
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+      
+      const { data: weekData, error: weekError } = await supabase
+        .from('mood_tracker')
+        .select('*')
+        .eq('user_id', user?.id)
+        .gte('created_at', sevenDaysAgo.toISOString())
+        .order('created_at', { ascending: true });
+
+      if (weekError) throw weekError;
+
+      // Process weekly mood data
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const weeklyData = [];
+      
+      for (let i = 0; i < 7; i++) {
+        const date = new Date();
+        date.setDate(date.getDate() - (6 - i));
+        const dayName = dayNames[date.getDay()];
+        
+        const dayEntries = weekData?.filter(entry => {
+          const entryDate = new Date(entry.created_at);
+          return entryDate.toDateString() === date.toDateString();
+        }) || [];
+
+        const moodCounts = {
+          happy: dayEntries.filter(e => ['happy', 'very_happy'].includes(e.mood)).length,
+          anxious: dayEntries.reduce((sum, e) => sum + (e.anxiety_level || 0), 0) / (dayEntries.length || 1),
+          sad: dayEntries.filter(e => ['sad', 'very_sad'].includes(e.mood)).length,
+        };
+
+        weeklyData.push({
+          name: dayName,
+          ...moodCounts
+        });
+      }
+      setWeeklyMoodData(weeklyData);
+
+      // Process emotion distribution
+      const allMoods = weekData?.map(entry => entry.mood) || [];
+      const moodCounts = allMoods.reduce((acc: any, mood) => {
+        acc[mood] = (acc[mood] || 0) + 1;
+        return acc;
+      }, {});
+
+      const emotionDist = Object.entries(moodCounts).map(([mood, count]) => ({
+        name: mood.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        value: count as number
+      }));
+      setEmotionDistribution(emotionDist);
+
+      // Process sleep data
+      const sleepInfo = weeklyData.map((day, index) => {
+        const date = new Date();
+        date.setDate(date.getDate() - (6 - index));
+        
+        const dayEntries = weekData?.filter(entry => {
+          const entryDate = new Date(entry.created_at);
+          return entryDate.toDateString() === date.toDateString();
+        }) || [];
+
+        const avgSleep = dayEntries.length > 0 
+          ? dayEntries.reduce((sum, e) => sum + (e.sleep_hours || 0), 0) / dayEntries.length
+          : 0;
+
+        return {
+          date: day.name,
+          hours: avgSleep
+        };
+      });
+      setSleepData(sleepInfo);
+
+    } catch (error) {
+      console.error('Error loading chart data:', error);
     }
   };
 
@@ -150,8 +209,9 @@ const MoodTracker = () => {
       setStressLevel('');
       setDialogOpen(false);
       
-      // Reload entries
+      // Reload entries and chart data
       await loadMoodEntries();
+      await loadChartData();
     } catch (error) {
       console.error('Error saving mood entry:', error);
       toast({
@@ -352,7 +412,15 @@ const MoodTracker = () => {
             <CardContent>
               <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={moodData}>
+                  <BarChart data={weeklyMoodData.length > 0 ? weeklyMoodData : [
+                    { name: 'Mon', happy: 0, anxious: 0, sad: 0 },
+                    { name: 'Tue', happy: 0, anxious: 0, sad: 0 },
+                    { name: 'Wed', happy: 0, anxious: 0, sad: 0 },
+                    { name: 'Thu', happy: 0, anxious: 0, sad: 0 },
+                    { name: 'Fri', happy: 0, anxious: 0, sad: 0 },
+                    { name: 'Sat', happy: 0, anxious: 0, sad: 0 },
+                    { name: 'Sun', happy: 0, anxious: 0, sad: 0 }
+                  ]}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <Bar dataKey="happy" fill="#4ECDC4" name="Happy" />
                     <Bar dataKey="anxious" fill="#FFD166" name="Anxious" />
@@ -377,17 +445,19 @@ const MoodTracker = () => {
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={emotionDistribution}
+                      data={emotionDistribution.length > 0 ? emotionDistribution : [
+                        { name: 'No Data', value: 1 }
+                      ]}
                       cx="50%"
                       cy="50%"
                       labelLine={false}
                       outerRadius={80}
                       fill="#8884d8"
                       dataKey="value"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      label={({ name, percent }) => emotionDistribution.length > 0 ? `${name} ${(percent * 100).toFixed(0)}%` : 'No data yet'}
                     >
-                      {emotionDistribution.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      {(emotionDistribution.length > 0 ? emotionDistribution : [{ name: 'No Data', value: 1 }]).map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={emotionDistribution.length > 0 ? COLORS[index % COLORS.length] : '#e5e7eb'} />
                       ))}
                     </Pie>
                     <Tooltip />
@@ -406,7 +476,15 @@ const MoodTracker = () => {
             <CardContent>
               <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={sleepData}>
+                  <LineChart data={sleepData.length > 0 ? sleepData : [
+                    { date: 'Mon', hours: 0 },
+                    { date: 'Tue', hours: 0 },
+                    { date: 'Wed', hours: 0 },
+                    { date: 'Thu', hours: 0 },
+                    { date: 'Fri', hours: 0 },
+                    { date: 'Sat', hours: 0 },
+                    { date: 'Sun', hours: 0 }
+                  ]}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <Line 
                       type="monotone" 

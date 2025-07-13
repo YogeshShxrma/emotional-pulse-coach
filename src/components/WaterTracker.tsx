@@ -5,39 +5,99 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Check, Droplet, Plus, Minus } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 interface WaterTrackerProps {
   date: Date;
 }
-
-// Simple in-memory storage for demo purposes
-const waterDataStore: Record<string, { glasses: number }> = {};
 
 // Constants
 const GLASSES_TARGET = 8;
 const GLASS_SIZE_ML = 250;
 
 export const WaterTracker = ({ date }: WaterTrackerProps) => {
+  const { user } = useAuth();
   const dateKey = format(date, "yyyy-MM-dd");
   const [waterGlasses, setWaterGlasses] = useState(0);
   const [isSaved, setIsSaved] = useState(false);
+  const [loading, setLoading] = useState(false);
   
   // Load saved data when date changes
   useEffect(() => {
-    const savedData = waterDataStore[dateKey];
-    if (savedData) {
-      setWaterGlasses(savedData.glasses);
-      setIsSaved(true);
-    } else {
-      setWaterGlasses(0);
-      setIsSaved(false);
+    if (user) {
+      loadWaterData();
     }
-  }, [dateKey]);
+  }, [dateKey, user]);
+
+  const loadWaterData = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("daily_checkins")
+        .select("*")
+        .eq("user_id", user?.id)
+        .eq("date", dateKey)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      
+      if (data) {
+        const waterData = JSON.parse(data.notes || '{}');
+        setWaterGlasses(waterData.water_glasses || 0);
+        setIsSaved(true);
+      } else {
+        setWaterGlasses(0);
+        setIsSaved(false);
+      }
+    } catch (error) {
+      console.error('Error loading water data:', error);
+    }
+  };
   
-  const saveWaterData = () => {
-    waterDataStore[dateKey] = { glasses: waterGlasses };
-    setIsSaved(true);
-    toast.success("Water intake saved successfully");
+  const saveWaterData = async () => {
+    setLoading(true);
+    try {
+      const waterData = { water_glasses: waterGlasses };
+
+      const { data: existingData } = await supabase
+        .from("daily_checkins")
+        .select("*")
+        .eq("user_id", user?.id)
+        .eq("date", dateKey)
+        .single();
+
+      if (existingData) {
+        const existingNotes = JSON.parse(existingData.notes || '{}');
+        const updatedNotes = { ...existingNotes, ...waterData };
+        
+        const { error } = await supabase
+          .from("daily_checkins")
+          .update({ notes: JSON.stringify(updatedNotes) })
+          .eq("user_id", user?.id)
+          .eq("date", dateKey);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("daily_checkins")
+          .insert({
+            user_id: user?.id,
+            date: dateKey,
+            status: "okay",
+            notes: JSON.stringify(waterData)
+          });
+
+        if (error) throw error;
+      }
+
+      setIsSaved(true);
+      toast.success("Water intake saved successfully");
+    } catch (error) {
+      console.error('Error saving water data:', error);
+      toast.error("Failed to save water data");
+    } finally {
+      setLoading(false);
+    }
   };
   
   const incrementGlasses = () => {
@@ -122,8 +182,11 @@ export const WaterTracker = ({ date }: WaterTrackerProps) => {
       <Button 
         onClick={saveWaterData}
         className="w-full bg-emotionBlue hover:bg-emotionBlue/90"
+        disabled={loading}
       >
-        {isSaved ? (
+        {loading ? (
+          "Saving..."
+        ) : isSaved ? (
           <>
             <Check className="mr-2 h-4 w-4" />
             Update Water Intake

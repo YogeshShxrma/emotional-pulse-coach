@@ -7,52 +7,110 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Check, Bell, Brain } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 interface MeditationTrackerProps {
   date: Date;
 }
 
-// Simple in-memory storage for demo purposes
-const meditationDataStore: Record<string, { minutes: number; completed: boolean; reminderTime?: string }> = {};
-
 export const MeditationTracker = ({ date }: MeditationTrackerProps) => {
+  const { user } = useAuth();
   const dateKey = format(date, "yyyy-MM-dd");
   const [meditationMinutes, setMeditationMinutes] = useState(10);
   const [reminderTime, setReminderTime] = useState("");
   const [hasReminder, setHasReminder] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const [loading, setLoading] = useState(false);
   
   // Load saved data when date changes
   useEffect(() => {
-    const savedData = meditationDataStore[dateKey];
-    if (savedData) {
-      setMeditationMinutes(savedData.minutes);
-      setReminderTime(savedData.reminderTime || "");
-      setHasReminder(Boolean(savedData.reminderTime));
-      setIsSaved(true);
-    } else {
-      setMeditationMinutes(10);
-      setReminderTime("");
-      setHasReminder(false);
-      setIsSaved(false);
+    if (user) {
+      loadMeditationData();
     }
-  }, [dateKey]);
+  }, [dateKey, user]);
+
+  const loadMeditationData = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("daily_checkins")
+        .select("*")
+        .eq("user_id", user?.id)
+        .eq("date", dateKey)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      
+      if (data) {
+        const meditationData = JSON.parse(data.notes || '{}');
+        setMeditationMinutes(meditationData.meditation_minutes || 10);
+        setReminderTime(meditationData.reminder_time || "");
+        setHasReminder(Boolean(meditationData.reminder_time));
+        setIsSaved(true);
+      } else {
+        setMeditationMinutes(10);
+        setReminderTime("");
+        setHasReminder(false);
+        setIsSaved(false);
+      }
+    } catch (error) {
+      console.error('Error loading meditation data:', error);
+    }
+  };
   
-  const saveMeditationData = () => {
-    meditationDataStore[dateKey] = { 
-      minutes: meditationMinutes, 
-      completed: true,
-      reminderTime: hasReminder ? reminderTime : undefined
-    };
-    setIsSaved(true);
-    
-    if (hasReminder && reminderTime) {
-      // In a real app, this would set a system notification
-      // For demo, we'll just show a toast
-      toast.success(`Meditation reminder set for ${reminderTime}`);
+  const saveMeditationData = async () => {
+    setLoading(true);
+    try {
+      const meditationData = { 
+        meditation_minutes: meditationMinutes, 
+        meditation_completed: true,
+        reminder_time: hasReminder ? reminderTime : undefined
+      };
+
+      const { data: existingData } = await supabase
+        .from("daily_checkins")
+        .select("*")
+        .eq("user_id", user?.id)
+        .eq("date", dateKey)
+        .single();
+
+      if (existingData) {
+        const existingNotes = JSON.parse(existingData.notes || '{}');
+        const updatedNotes = { ...existingNotes, ...meditationData };
+        
+        const { error } = await supabase
+          .from("daily_checkins")
+          .update({ notes: JSON.stringify(updatedNotes) })
+          .eq("user_id", user?.id)
+          .eq("date", dateKey);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("daily_checkins")
+          .insert({
+            user_id: user?.id,
+            date: dateKey,
+            status: "okay",
+            notes: JSON.stringify(meditationData)
+          });
+
+        if (error) throw error;
+      }
+
+      setIsSaved(true);
+      
+      if (hasReminder && reminderTime) {
+        toast.success(`Meditation reminder set for ${reminderTime}`);
+      }
+      
+      toast.success("Meditation data saved successfully");
+    } catch (error) {
+      console.error('Error saving meditation data:', error);
+      toast.error("Failed to save meditation data");
+    } finally {
+      setLoading(false);
     }
-    
-    toast.success("Meditation data saved successfully");
   };
   
   const handleReminderToggle = () => {
@@ -126,8 +184,11 @@ export const MeditationTracker = ({ date }: MeditationTrackerProps) => {
       <Button 
         onClick={saveMeditationData}
         className="w-full bg-amber-500 hover:bg-amber-600 text-white"
+        disabled={loading}
       >
-        {isSaved ? (
+        {loading ? (
+          "Saving..."
+        ) : isSaved ? (
           <>
             <Check className="mr-2 h-4 w-4" />
             Update Meditation
