@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Bot, User, AlertTriangle } from "lucide-react";
+import { Send, Bot, User, AlertTriangle, Mic, MicOff, Volume2, VolumeX, RotateCcw, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -15,6 +15,7 @@ interface Message {
   isUser: boolean;
   timestamp: Date;
   emotionalTone?: string;
+  isVoiceMessage?: boolean;
 }
 
 const INITIAL_MESSAGES: Message[] = [
@@ -40,8 +41,21 @@ const ChatBot = () => {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messageCount, setMessageCount] = useState(1);
   const [showCrisisAlert, setShowCrisisAlert] = useState(false);
+  
+  // Voice interaction states
+  const [isListening, setIsListening] = useState(false);
+  const [isVoiceSupported, setIsVoiceSupported] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [voicePermissionGranted, setVoicePermissionGranted] = useState(false);
+  const [showVoicePrivacyNotice, setShowVoicePrivacyNotice] = useState(false);
+  const [isAudioMuted, setIsAudioMuted] = useState(false);
+  const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+  
   const { user, profile } = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const synthRef = useRef<SpeechSynthesis | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -51,12 +65,193 @@ const ChatBot = () => {
     scrollToBottom();
   }, [messages, isTyping]);
 
+  // Initialize voice capabilities
+  useEffect(() => {
+    const checkVoiceSupport = () => {
+      const speechRecognition = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
+      const speechSynthesis = 'speechSynthesis' in window;
+      setIsVoiceSupported(speechRecognition && speechSynthesis);
+      
+      if (speechSynthesis) {
+        synthRef.current = window.speechSynthesis;
+        loadVoices();
+      }
+    };
+
+    const loadVoices = () => {
+      const voices = speechSynthesis.getVoices();
+      const englishVoices = voices.filter(voice => voice.lang.startsWith('en'));
+      const femaleVoices = englishVoices.filter(voice => 
+        voice.name.toLowerCase().includes('female') || 
+        voice.name.toLowerCase().includes('woman') ||
+        voice.name.toLowerCase().includes('samantha') ||
+        voice.name.toLowerCase().includes('karen') ||
+        voice.name.toLowerCase().includes('susan')
+      );
+      
+      setAvailableVoices(englishVoices);
+      
+      // Prefer calm, slow female voice
+      const preferredVoice = femaleVoices.find(voice => 
+        voice.name.toLowerCase().includes('samantha')
+      ) || femaleVoices[0] || englishVoices[0];
+      
+      setSelectedVoice(preferredVoice);
+    };
+
+    checkVoiceSupport();
+    
+    if ('speechSynthesis' in window) {
+      speechSynthesis.onvoiceschanged = loadVoices;
+    }
+  }, []);
+
   // Initialize session when component mounts
   useEffect(() => {
     if (user && !sessionId) {
       initializeSession();
     }
   }, [user]);
+
+  // Initialize speech recognition
+  const initializeSpeechRecognition = useCallback(() => {
+    if (!isVoiceSupported) return null;
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+    };
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      handleSendMessage(transcript, true);
+    };
+
+    recognition.onerror = (event) => {
+      console.error('Speech recognition error:', event.error);
+      setIsListening(false);
+      
+      let errorMessage = "Voice recognition failed. Please try again.";
+      if (event.error === 'not-allowed') {
+        errorMessage = "Microphone access denied. Please enable microphone permissions.";
+      } else if (event.error === 'network') {
+        errorMessage = "Network error. Please check your connection.";
+      }
+      
+      toast({
+        title: "Voice Input Error",
+        description: errorMessage,
+        variant: "destructive"
+      });
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    return recognition;
+  }, [isVoiceSupported]);
+
+  // Text-to-speech function
+  const speakText = useCallback((text: string) => {
+    if (!synthRef.current || isAudioMuted || !selectedVoice) return;
+
+    // Cancel any ongoing speech
+    synthRef.current.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.voice = selectedVoice;
+    utterance.rate = 0.8; // Slower, calmer pace
+    utterance.pitch = 1.0;
+    utterance.volume = 0.8;
+
+    utterance.onstart = () => {
+      setIsSpeaking(true);
+    };
+
+    utterance.onend = () => {
+      setIsSpeaking(false);
+    };
+
+    utterance.onerror = (event) => {
+      console.error('Speech synthesis error:', event.error);
+      setIsSpeaking(false);
+    };
+
+    synthRef.current.speak(utterance);
+  }, [selectedVoice, isAudioMuted]);
+
+  // Request microphone permission
+  const requestMicrophonePermission = async () => {
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      setVoicePermissionGranted(true);
+      setShowVoicePrivacyNotice(false);
+      return true;
+    } catch (error) {
+      console.error('Microphone permission denied:', error);
+      toast({
+        title: "Microphone Access Required",
+        description: "Please enable microphone access to use voice features.",
+        variant: "destructive"
+      });
+      return false;
+    }
+  };
+
+  // Start voice input
+  const startVoiceInput = async () => {
+    if (!isVoiceSupported) {
+      toast({
+        title: "Voice Not Supported",
+        description: "Your browser doesn't support voice input. Please type your message.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!voicePermissionGranted) {
+      setShowVoicePrivacyNotice(true);
+      return;
+    }
+
+    recognitionRef.current = initializeSpeechRecognition();
+    if (recognitionRef.current) {
+      recognitionRef.current.start();
+    }
+  };
+
+  // Stop voice input
+  const stopVoiceInput = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+    setIsListening(false);
+  };
+
+  // Toggle audio mute
+  const toggleAudioMute = () => {
+    if (isSpeaking && synthRef.current) {
+      synthRef.current.cancel();
+      setIsSpeaking(false);
+    }
+    setIsAudioMuted(!isAudioMuted);
+  };
+
+  // Repeat last AI response
+  const repeatLastResponse = () => {
+    const lastBotMessage = messages.filter(msg => !msg.isUser).pop();
+    if (lastBotMessage) {
+      speakText(lastBotMessage.text);
+    }
+  };
 
   const initializeSession = async () => {
     if (!user) return;
@@ -77,7 +272,7 @@ const ChatBot = () => {
     }
   };
 
-  const handleSendMessage = async (messageText?: string) => {
+  const handleSendMessage = async (messageText?: string, isVoice = false) => {
     const textToSend = messageText || input.trim();
     if (!textToSend) return;
 
@@ -87,6 +282,7 @@ const ChatBot = () => {
       text: textToSend,
       isUser: true,
       timestamp: new Date(),
+      isVoiceMessage: isVoice,
     };
 
     setMessages((prev) => [...prev, userMessage]);
@@ -126,6 +322,11 @@ const ChatBot = () => {
         setMessages((prev) => [...prev, botMessage]);
         setMessageCount(data.messageCount || messageCount + 1);
 
+        // Speak AI response if not muted
+        if (!isAudioMuted && !data.isCrisis) {
+          setTimeout(() => speakText(botMessage.text), 500);
+        }
+
       } catch (error) {
         console.error('Error:', error);
         
@@ -158,6 +359,11 @@ const ChatBot = () => {
 
         setMessages((prev) => [...prev, botMessage]);
         setMessageCount(prev => prev + 1);
+
+        // Speak fallback response if not muted
+        if (!isAudioMuted) {
+          setTimeout(() => speakText(botMessage.text), 500);
+        }
 
         toast({
           title: "Connection Issue",
@@ -287,6 +493,9 @@ const ChatBot = () => {
                       message.isUser ? "text-right text-blue-600 dark:text-blue-400" : "text-left text-gray-500 dark:text-gray-400"
                     )}>
                       {formatTime(message.timestamp)}
+                      {message.isVoiceMessage && (
+                        <span className="ml-2 text-emotionTeal">• 🎤 Voice</span>
+                      )}
                       {message.emotionalTone && !message.isUser && (
                         <span className="ml-2 text-emotionTeal">• {message.emotionalTone}</span>
                       )}
@@ -326,6 +535,31 @@ const ChatBot = () => {
           </div>
         </div>
         
+        {/* Voice Controls */}
+        {isVoiceSupported && voicePermissionGranted && (
+          <div className="px-4 pb-2">
+            <div className="flex items-center justify-center gap-2 mb-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={toggleAudioMute}
+                className="rounded-full"
+              >
+                {isAudioMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={repeatLastResponse}
+                className="rounded-full"
+                disabled={isSpeaking}
+              >
+                <RotateCcw className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Input area */}
         <div className="p-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-b-3xl">
           <form 
@@ -341,21 +575,135 @@ const ChatBot = () => {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               className="flex-1 rounded-full py-3 px-4 bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 focus-visible:ring-2 focus-visible:ring-emotionTeal focus-visible:border-emotionTeal text-sm"
-              disabled={isTyping}
+              disabled={isTyping || isListening}
             />
+            
+            {/* Voice Input Button */}
+            {isVoiceSupported && (
+              <Button
+                type="button"
+                onClick={isListening ? stopVoiceInput : startVoiceInput}
+                className={cn(
+                  "w-11 h-11 p-0 rounded-full text-white flex items-center justify-center shadow-lg transition-all duration-200 hover:shadow-xl",
+                  isListening 
+                    ? "bg-red-500 hover:bg-red-600 animate-pulse" 
+                    : "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700"
+                )}
+                disabled={isTyping}
+              >
+                {isListening ? (
+                  <motion.div
+                    animate={{ scale: [1, 1.2, 1] }}
+                    transition={{ duration: 1, repeat: Infinity }}
+                  >
+                    <MicOff className="w-4 h-4" />
+                  </motion.div>
+                ) : (
+                  <Mic className="w-4 h-4" />
+                )}
+              </Button>
+            )}
+            
             <Button
               type="submit"
               className="w-11 h-11 p-0 rounded-full bg-gradient-to-r from-emotionTeal to-emotionBlue hover:from-emotionTeal-600 hover:to-emotionBlue-600 text-white flex items-center justify-center shadow-lg transition-all duration-200 hover:shadow-xl"
-              disabled={!input.trim() || isTyping}
+              disabled={!input.trim() || isTyping || isListening}
             >
               <Send className="w-4 h-4" />
             </Button>
           </form>
+          
+          {/* Voice Status */}
+          {isListening && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-2 text-center"
+            >
+              <p className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">
+                🎤 Listening... Speak now
+              </p>
+            </motion.div>
+          )}
+          
+          {isSpeaking && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-2 text-center"
+            >
+              <p className="text-sm text-emotionTeal font-medium">
+                🔊 Menti AI is speaking...
+              </p>
+            </motion.div>
+          )}
+          
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
             Menti AI provides support, not medical advice. For emergencies, contact your local crisis line.
           </p>
         </div>
       </motion.div>
+
+      {/* Voice Privacy Notice */}
+      <AnimatePresence>
+        {showVoicePrivacyNotice && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+          >
+            <motion.div
+              className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md mx-auto shadow-2xl"
+              initial={{ y: 20 }}
+              animate={{ y: 0 }}
+            >
+              <div className="flex items-center mb-4">
+                <Shield className="w-6 h-6 text-emotionTeal mr-3" />
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Voice Privacy Notice
+                </h3>
+              </div>
+              
+              <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300 mb-6">
+                <p>
+                  • Your voice will be processed locally on your device for speech recognition
+                </p>
+                <p>
+                  • Voice data is not stored or transmitted to external servers
+                </p>
+                <p>
+                  • Only the transcribed text is sent to our AI for response generation
+                </p>
+                <p>
+                  • You can disable voice features at any time
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => setShowVoicePrivacyNotice(false)}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={async () => {
+                    const granted = await requestMicrophonePermission();
+                    if (granted) {
+                      startVoiceInput();
+                    }
+                  }}
+                  className="flex-1 bg-gradient-to-r from-emotionTeal to-emotionBlue"
+                >
+                  Allow & Continue
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
