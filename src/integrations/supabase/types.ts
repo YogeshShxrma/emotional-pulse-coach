@@ -242,6 +242,54 @@ export type Database = {
         }
         Relationships: []
       }
+      user_mental_states: {
+        Row: {
+          communication_style: string | null
+          coping_mechanisms: string[] | null
+          created_at: string
+          emotions: string[] | null
+          id: string
+          intensity: number
+          keywords: string[] | null
+          mood: string
+          preferred_activities: string[] | null
+          recorded_at: string
+          session_id: string | null
+          triggers: string[] | null
+          user_id: string
+        }
+        Insert: {
+          communication_style?: string | null
+          coping_mechanisms?: string[] | null
+          created_at?: string
+          emotions?: string[] | null
+          id?: string
+          intensity?: number
+          keywords?: string[] | null
+          mood: string
+          preferred_activities?: string[] | null
+          recorded_at?: string
+          session_id?: string | null
+          triggers?: string[] | null
+          user_id: string
+        }
+        Update: {
+          communication_style?: string | null
+          coping_mechanisms?: string[] | null
+          created_at?: string
+          emotions?: string[] | null
+          id?: string
+          intensity?: number
+          keywords?: string[] | null
+          mood?: string
+          preferred_activities?: string[] | null
+          recorded_at?: string
+          session_id?: string | null
+          triggers?: string[] | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_streaks: {
         Row: {
           created_at: string | null

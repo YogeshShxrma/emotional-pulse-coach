@@ -47,7 +47,7 @@ serve(async (req) => {
   }
 
   try {
-    const { message, context, sessionId, messageCount = 1 } = await req.json();
+    const { message, context, sessionId, messageCount = 1, mentalState, preferences } = await req.json();
 
     // Check for crisis keywords
     const isCrisis = crisisKeywords.some(keyword => message.toLowerCase().includes(keyword));
@@ -93,6 +93,21 @@ serve(async (req) => {
 
 **Current Emotional Context:** The user seems to be feeling ${emotionalTone}
 
+${mentalState ? `
+**Mental State Analysis:**
+- Current mood: ${mentalState.mood} (intensity: ${mentalState.intensity}/3)
+- Detected emotions: ${mentalState.emotions?.join(', ') || 'none'}
+- Keywords: ${mentalState.keywords?.join(', ') || 'none'}
+` : ''}
+
+${preferences ? `
+**User Preferences & Patterns:**
+- Communication style: ${preferences.communicationStyle}
+- Preferred activities: ${preferences.preferredActivities?.join(', ') || 'none identified'}
+- Effective coping mechanisms: ${preferences.copingMechanisms?.join(', ') || 'none identified'}
+- Known triggers: ${preferences.triggers?.join(', ') || 'none identified'}
+` : ''}
+
 **Therapeutic Techniques to Use:**
 - Validate their emotions before offering guidance
 - Ask open-ended questions to help them explore their feelings
@@ -100,6 +115,7 @@ serve(async (req) => {
 - Gently challenge negative thought patterns (CBT approach)
 - Offer practical coping strategies when appropriate
 - Break down overwhelming situations into manageable parts
+- Reference their preferences and past successful coping strategies
 
 **Response Style Examples:**
 - "That sounds really overwhelming. Can you tell me more about what's been triggering this lately?"

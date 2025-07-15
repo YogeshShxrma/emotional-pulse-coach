@@ -459,6 +459,24 @@ const ChatBot = () => {
           }
         });
 
+        // Save mental state and preferences to database
+        try {
+          await supabase.from('user_mental_states').insert({
+            user_id: user.id,
+            session_id: sessionId,
+            mood: mentalState.mood,
+            intensity: mentalState.intensity,
+            keywords: mentalState.keywords,
+            emotions: mentalState.emotions,
+            communication_style: preferences.communicationStyle,
+            preferred_activities: preferences.preferredActivities,
+            coping_mechanisms: preferences.copingMechanisms,
+            triggers: preferences.triggers
+          });
+        } catch (stateError) {
+          console.error('Error saving mental state:', stateError);
+        }
+
         if (error) throw error;
 
         // Check for crisis response

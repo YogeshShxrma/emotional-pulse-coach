@@ -11,6 +11,7 @@ import EmergencyAlert from "@/components/EmergencyAlert";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
+import { toast } from "@/hooks/use-toast";
 
 const SettingsPage = () => {
   const { signOut, user, profile } = useAuth();
@@ -27,6 +28,49 @@ const SettingsPage = () => {
       fetchUserStreaks();
     }
   }, [user]);
+
+  const clearChatHistory = async () => {
+    if (!user) return;
+    
+    try {
+      // Delete all conversations
+      const { error: convError } = await supabase
+        .from('conversations')
+        .delete()
+        .eq('user_id', user.id);
+      
+      if (convError) throw convError;
+
+      // Delete all chat sessions
+      const { error: sessionError } = await supabase
+        .from('chat_sessions')
+        .delete()
+        .eq('user_id', user.id);
+      
+      if (sessionError) throw sessionError;
+
+      // Delete all mental states
+      const { error: stateError } = await supabase
+        .from('user_mental_states')
+        .delete()
+        .eq('user_id', user.id);
+      
+      if (stateError) throw stateError;
+
+      toast({
+        title: "Chat History Cleared",
+        description: "All your chat conversations have been deleted successfully.",
+        variant: "default"
+      });
+    } catch (error) {
+      console.error('Error clearing chat history:', error);
+      toast({
+        title: "Error",
+        description: "Failed to clear chat history. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
 
   const fetchUserStreaks = async () => {
     try {
@@ -209,6 +253,20 @@ const SettingsPage = () => {
                 checked={dataCollectionEnabled} 
                 onCheckedChange={setDataCollectionEnabled} 
               />
+            </div>
+            
+            <div className="flex items-center justify-between py-2">
+              <div>
+                <h4 className="font-medium">Clear Chat History</h4>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Delete all previous chat conversations</p>
+              </div>
+              <Button 
+                variant="destructive" 
+                size="sm"
+                onClick={clearChatHistory}
+              >
+                Clear Chats
+              </Button>
             </div>
             
             <div className="flex items-center justify-between py-2">
