@@ -65,6 +65,20 @@ const ChatBot = () => {
     scrollToBottom();
   }, [messages, isTyping]);
 
+  // Load chat history on component mount
+  useEffect(() => {
+    if (user && !sessionId) {
+      loadChatHistory();
+    }
+  }, [user]);
+
+  // Initialize session when user is available but no session exists
+  useEffect(() => {
+    if (user && !sessionId) {
+      initializeSession();
+    }
+  }, [user, sessionId]);
+
   // Initialize voice capabilities
   useEffect(() => {
     const checkVoiceSupport = () => {
@@ -106,12 +120,88 @@ const ChatBot = () => {
     }
   }, []);
 
-  // Initialize session when component mounts
-  useEffect(() => {
-    if (user && !sessionId) {
-      initializeSession();
+  // Mental state analysis function
+  const analyzeMentalState = (message: string) => {
+    const lowerMessage = message.toLowerCase();
+    const analysis = {
+      mood: 'neutral' as 'positive' | 'negative' | 'neutral' | 'anxious' | 'depressed',
+      intensity: 1,
+      keywords: [] as string[],
+      emotions: [] as string[]
+    };
+
+    // Detect negative emotions
+    if (lowerMessage.includes('sad') || lowerMessage.includes('depress') || lowerMessage.includes('hopeless') || lowerMessage.includes('worthless')) {
+      analysis.mood = 'depressed';
+      analysis.intensity = 3;
+      analysis.emotions.push('depression');
+      analysis.keywords.push('sadness', 'depression');
+    } else if (lowerMessage.includes('anxious') || lowerMessage.includes('panic') || lowerMessage.includes('worried') || lowerMessage.includes('nervous')) {
+      analysis.mood = 'anxious';
+      analysis.intensity = 3;
+      analysis.emotions.push('anxiety');
+      analysis.keywords.push('anxiety', 'worry');
+    } else if (lowerMessage.includes('angry') || lowerMessage.includes('frustrated') || lowerMessage.includes('mad') || lowerMessage.includes('irritated')) {
+      analysis.mood = 'negative';
+      analysis.intensity = 2;
+      analysis.emotions.push('anger');
+      analysis.keywords.push('anger', 'frustration');
+    } else if (lowerMessage.includes('stressed') || lowerMessage.includes('overwhelm') || lowerMessage.includes('burnout')) {
+      analysis.mood = 'negative';
+      analysis.intensity = 2;
+      analysis.emotions.push('stress');
+      analysis.keywords.push('stress', 'overwhelm');
+    } else if (lowerMessage.includes('happy') || lowerMessage.includes('good') || lowerMessage.includes('great') || lowerMessage.includes('excited')) {
+      analysis.mood = 'positive';
+      analysis.intensity = 1;
+      analysis.emotions.push('happiness');
+      analysis.keywords.push('happiness', 'positive');
     }
-  }, [user]);
+
+    return analysis;
+  };
+
+  // Preferences extraction function
+  const extractPreferences = (message: string) => {
+    const lowerMessage = message.toLowerCase();
+    const preferences = {
+      communicationStyle: 'supportive' as 'supportive' | 'direct' | 'gentle',
+      preferredActivities: [] as string[],
+      copingMechanisms: [] as string[],
+      triggers: [] as string[]
+    };
+
+    // Detect communication preferences
+    if (lowerMessage.includes('direct') || lowerMessage.includes('straight') || lowerMessage.includes('honest')) {
+      preferences.communicationStyle = 'direct';
+    } else if (lowerMessage.includes('gentle') || lowerMessage.includes('soft') || lowerMessage.includes('patient')) {
+      preferences.communicationStyle = 'gentle';
+    }
+
+    // Detect preferred activities
+    if (lowerMessage.includes('meditation') || lowerMessage.includes('mindful')) {
+      preferences.preferredActivities.push('meditation');
+    }
+    if (lowerMessage.includes('exercise') || lowerMessage.includes('workout') || lowerMessage.includes('run')) {
+      preferences.preferredActivities.push('exercise');
+    }
+    if (lowerMessage.includes('music') || lowerMessage.includes('listen')) {
+      preferences.preferredActivities.push('music');
+    }
+    if (lowerMessage.includes('journal') || lowerMessage.includes('write')) {
+      preferences.preferredActivities.push('journaling');
+    }
+
+    // Detect coping mechanisms
+    if (lowerMessage.includes('breathing') || lowerMessage.includes('breath')) {
+      preferences.copingMechanisms.push('breathing exercises');
+    }
+    if (lowerMessage.includes('talk') || lowerMessage.includes('vent')) {
+      preferences.copingMechanisms.push('talking');
+    }
+
+    return preferences;
+  };
 
   // Initialize speech recognition
   const initializeSpeechRecognition = useCallback(() => {
@@ -253,6 +343,66 @@ const ChatBot = () => {
     }
   };
 
+  const loadChatHistory = async () => {
+    if (!user) return;
+    
+    try {
+      // Get the most recent session
+      const { data: latestSession, error: sessionError } = await supabase
+        .from('chat_sessions')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (sessionError && sessionError.code !== 'PGRST116') {
+        throw sessionError;
+      }
+
+      if (latestSession) {
+        setSessionId(latestSession.id);
+        setMessageCount(latestSession.message_count || 1);
+
+        // Load conversations for this session
+        const { data: conversations, error: convError } = await supabase
+          .from('conversations')
+          .select('*')
+          .eq('session_id', latestSession.id)
+          .order('created_at', { ascending: true });
+
+        if (convError) throw convError;
+
+        if (conversations && conversations.length > 0) {
+          const chatHistory: Message[] = [INITIAL_MESSAGES[0]]; // Keep welcome message
+          
+          conversations.forEach(conv => {
+            // Add user message
+            chatHistory.push({
+              id: `user-${conv.id}`,
+              text: conv.message,
+              isUser: true,
+              timestamp: new Date(conv.created_at),
+            });
+            
+            // Add AI response
+            chatHistory.push({
+              id: `ai-${conv.id}`,
+              text: conv.response,
+              isUser: false,
+              timestamp: new Date(conv.updated_at),
+              emotionalTone: conv.emotional_tone
+            });
+          });
+          
+          setMessages(chatHistory);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading chat history:', error);
+    }
+  };
+
   const initializeSession = async () => {
     if (!user) return;
     
@@ -294,12 +444,18 @@ const ChatBot = () => {
       try {
         const context = profile ? `User ID: ${user?.id}. User is a ${profile.role}. Name: ${profile.first_name} ${profile.last_name}` : `User ID: ${user?.id}. No user context available`;
 
+        // Analyze user mental state and preferences from message
+        const mentalState = analyzeMentalState(textToSend);
+        const preferences = extractPreferences(textToSend);
+
         const { data, error } = await supabase.functions.invoke('ai-chat', {
           body: {
             message: textToSend,
             context: context,
             sessionId: sessionId,
-            messageCount: messageCount
+            messageCount: messageCount,
+            mentalState: mentalState,
+            preferences: preferences
           }
         });
 
