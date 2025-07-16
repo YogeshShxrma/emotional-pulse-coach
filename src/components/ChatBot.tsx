@@ -587,7 +587,7 @@ const ChatBot = () => {
   );
 
   return (
-    <div className="flex flex-col h-full w-full max-w-md mx-auto">
+    <div className="flex flex-col h-full w-full max-w-4xl mx-auto mobile-container">
       {/* Crisis Alert */}
       <AnimatePresence>
         {showCrisisAlert && (
@@ -608,15 +608,15 @@ const ChatBot = () => {
       </AnimatePresence>
       
       <motion.div 
-        className="flex-1 overflow-hidden flex flex-col bg-white dark:bg-gray-800 rounded-3xl shadow-lg mb-4"
+        className="flex-1 overflow-hidden flex flex-col bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl shadow-lg mb-4"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
         {/* Chat header */}
-        <div className="p-4 border-b dark:border-gray-700 flex items-center">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emotionTeal to-emotionBlue flex items-center justify-center text-white mr-3 shadow-lg">
-            <Bot className="w-5 h-5" />
+        <div className="p-4 sm:p-6 border-b dark:border-gray-700 flex items-center">
+          <div className="w-12 h-12 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-emotionTeal to-emotionBlue flex items-center justify-center text-white mr-3 shadow-lg">
+            <Bot className="w-6 h-6 sm:w-5 sm:h-5" />
           </div>
           <div>
             <h3 className="font-semibold text-gray-900 dark:text-white">Menti AI</h3>
